@@ -199,3 +199,5 @@ venv.bak/
 *.~vsd*
 
 .idea
+./data/
+./datasets/
