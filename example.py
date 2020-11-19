@@ -54,7 +54,7 @@ def main():
     model.test()
     model.test(trainer=trainer, test_data=test_set)
     test_result = trainer.test(model=model, test_dataloaders=test_set.get_dataloader())
-    LOGGER.log(test_result)
+    LOGGER.info(test_result)
     return
 
 
