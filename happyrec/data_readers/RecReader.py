@@ -9,7 +9,7 @@ from ..data_readers.DataReader import DataReader
 
 class RecReader(DataReader):
     def read_user(self, filename: str, formatters: dict) -> dict:
-        LOGGER.info("read {}...".format(filename))
+        LOGGER.debug("read {}...".format(filename))
         df = read_df(dirname=self.dataset_dir, filename=filename)
         self.user_data = df2dict(df, formatters=formatters) if df is not None else {UID: np.array([0])}
         assert UID in self.user_data and len(self.user_data[UID]) == self.user_data[UID][-1] + 1
@@ -19,7 +19,7 @@ class RecReader(DataReader):
         return self.user_data
 
     def read_item(self, filename: str, formatters: dict) -> dict:
-        LOGGER.info("read {}...".format(filename))
+        LOGGER.debug("read {}...".format(filename))
         df = read_df(dirname=self.dataset_dir, filename=filename)
         self.item_data = df2dict(df, formatters=formatters) if df is not None else {IID: np.array([0])}
         assert IID in self.item_data and len(self.item_data[IID]) == self.item_data[IID][-1] + 1
@@ -29,7 +29,7 @@ class RecReader(DataReader):
         return self.item_data
 
     def read_val_iids(self, filename: str, formatters: dict, eval_sample_n: int = None) -> dict:
-        LOGGER.info("read {}...".format(filename))
+        LOGGER.debug("read {}...".format(filename))
         df = read_df(dirname=self.dataset_dir, filename=filename)
         val_iids = df2dict(df, formatters=formatters)
         for c in val_iids:
@@ -40,7 +40,7 @@ class RecReader(DataReader):
         return val_iids
 
     def read_test_iids(self, filename: str, formatters: dict, eval_sample_n: int = None) -> dict:
-        LOGGER.info("read {}...".format(filename))
+        LOGGER.debug("read {}...".format(filename))
         df = read_df(dirname=self.dataset_dir, filename=filename)
         test_iids = df2dict(df, formatters=formatters)
         for c in test_iids:

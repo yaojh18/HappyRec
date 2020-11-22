@@ -20,7 +20,7 @@ class RecDataset(Dataset):
     def get_interaction(self, index_dict: dict, index: int) -> dict:
         for c in [LABEL, UID, IID, TIME]:
             if c in self.data:
-                index_dict[c] = self.data[c][index]
+                index_dict[c] = [self.data[c][index]]
         return index_dict
 
     def sample_iids(self, index_dict: dict, sample_n: int, label: int = 0) -> dict:

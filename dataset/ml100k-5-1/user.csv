@@ -1,4 +1,4 @@
-u_id_c	u_age_i	u_gender_c	u_occupation_c
+u_id_c	u_age_c	u_gender_c	u_occupation_c
 0	0	0	0
 1	4	1	2
 2	10	2	1

@@ -47,7 +47,7 @@ class Model(pl.LightningModule):
                             help='Batch size during testing.')
         parser.add_argument('--num_workers', type=int, default=5,
                             help='Number of processors when get batches in DataLoader')
-        parser.add_argument('--es_patience', type=int, default=10,
+        parser.add_argument('--es_patience', type=int, default=20,
                             help='#epochs with no improvement after which training will be stopped (early stop).')
         parser.add_argument('--train_metrics', type=str, default='',
                             help='Calculate metrics on training')
@@ -61,7 +61,7 @@ class Model(pl.LightningModule):
                  lr: float = 0.001, optimizer: str = 'Adam', dropout: float = 0.2,
                  l2: float = 1e-6, l2_bias: int = 0, loss_sum: int = 1,
                  buffer_ds: int = 0, batch_size: int = 128, eval_batch_size: int = 128, num_workers: int = 5,
-                 es_patience: int = 10,
+                 es_patience: int = 20,
                  *args, **kwargs):
         super(Model, self).__init__()
         self.lr = lr
@@ -84,7 +84,7 @@ class Model(pl.LightningModule):
         self.val_dataset = None
         self.test_dataset = None
 
-    def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None) -> dict:
+    def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None):
         if reader is None:
             reader = eval(self.default_reader)(dataset_dir=dataset_dir)
         self.reader = reader
@@ -93,7 +93,7 @@ class Model(pl.LightningModule):
         reader.read_train(filename=TRAIN_FILE, formatters=formatters)
         reader.read_validation(filename=VAL_FILE, formatters=formatters)
         reader.read_test(filename=TEST_FILE, formatters=formatters)
-        return {}
+        return reader
 
     def read_formatters(self, formatters: dict = None) -> dict:
         current = {
@@ -234,7 +234,7 @@ class Model(pl.LightningModule):
 
     def test(self, test_data=None, trainer=None, **kwargs):
         if trainer is None:
-             trainer = self.trainer
+            trainer = self.trainer
         if test_data is None:
             test_data = self.get_dataset(phase=TEST_PHASE)
         if isinstance(test_data, Dataset):
@@ -273,7 +273,7 @@ class Model(pl.LightningModule):
             val_metrics = {}
             for key in metrics:
                 val_metrics['val_' + key] = metrics[key]
-            self.log_dict(metrics)
+            self.log_dict(val_metrics)
             metrics_name = self.val_metrics.metrics_str[0]
             early_stop_on = metrics[metrics_name]
             if metrics_name in METRICS_SMALLER:
@@ -297,4 +297,4 @@ class Model(pl.LightningModule):
             test_metrics = {}
             for key in metrics:
                 test_metrics['test_' + key] = metrics[key]
-            self.log_dict(metrics)
+            self.log_dict(test_metrics)

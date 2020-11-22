@@ -35,26 +35,26 @@ class RecModel(Model):
                             help='Number of iids sampling during training.')
         parser.add_argument('--eval_sample_n', type=int, default=-1,
                             help='Number of eval iids during evaluation, all<=-1, rating=0, ranking>0.')
+        parser.add_argument('--vec_size', type=int, default=64,
+                            help='Vector size of user/item embeddings.')
         return Model.parse_model_args(parser)
 
     def __init__(self, train_sample_n: int = 1, eval_sample_n: int = -1,
-                 user_num: int = None, item_num: int = None, ui_vec_size: int = 64,
+                 user_num: int = None, item_num: int = None, vec_size: int = 64,
                  *args, **kwargs):
         super(RecModel, self).__init__(*args, **kwargs)
         self.train_sample_n = train_sample_n
         self.eval_sample_n = eval_sample_n
         self.user_num = user_num
         self.item_num = item_num
-        self.ui_vec_size = ui_vec_size
+        self.vec_size = vec_size
 
-    def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None,
-                  *args, **kwargs) -> dict:
+    def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None, *args, **kwargs):
         if reader is None:
             reader = eval(self.default_reader)(dataset_dir=dataset_dir)
         self.reader = reader
         if formatters is None:
             formatters = self.read_formatters()
-        # super(RecModel, self).read_data(reader=reader, formatters=formatters)
         reader.read_train(filename=TRAIN_FILE, formatters=formatters)
         reader.read_validation(filename=VAL_FILE, formatters=formatters)
         reader.read_test(filename=TEST_FILE, formatters=formatters)
@@ -65,19 +65,14 @@ class RecModel(Model):
             reader.read_test_iids(filename=TEST_IIDS_FILE, formatters=formatters, eval_sample_n=self.eval_sample_n)
         self.user_num = reader.user_num
         self.item_num = reader.item_num
-        para_dict = {
-            'user_num': reader.user_num,
-            'item_num': reader.item_num,
-        }
-        # return {**super_para_dict, **para_dict}
-        return para_dict
+        return reader
 
     def read_formatters(self, formatters=None) -> dict:
         current = {
-            '^' + LABEL + '$': lambda x: [x],
-            '^' + UID + '$': lambda x: [x],
-            '^' + IID + '$': lambda x: [x],
-            '^' + TIME + '$': lambda x: [x],
+            '^' + LABEL + '$': None,
+            '^' + UID + '$': None,
+            '^' + IID + '$': None,
+            '^' + TIME + '$': None,
             '^' + EVAL_IIDS + '$': lambda x: split_seq(x),
             '^' + EVAL_LABELS + '$': lambda x: split_seq(x)
         }
@@ -122,8 +117,8 @@ class RecModel(Model):
             self.test_metrics = test_metrics
 
     def init_modules(self, *args, **kwargs) -> None:
-        self.uid_embeddings = torch.nn.Embedding(self.user_num, self.ui_vec_size)
-        self.iid_embeddings = torch.nn.Embedding(self.item_num, self.ui_vec_size)
+        self.uid_embeddings = torch.nn.Embedding(self.user_num, self.vec_size)
+        self.iid_embeddings = torch.nn.Embedding(self.item_num, self.vec_size)
         self.apply(self.init_weights)
         return
 
