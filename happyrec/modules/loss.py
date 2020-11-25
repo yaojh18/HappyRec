@@ -34,7 +34,7 @@ class BPRRankLoss(torch.nn.Module):
         pos_neg_tag = label[:, :1].gt(neg_thresh).float()  # B * 1
         observed, sample = prediction[:, :1], prediction[:, 1:]  # B * 1, B * S
         sample_softmax = sample * pos_neg_tag  # B * S
-        sample_softmax = (sample_softmax - sample_softmax.max(dim=1)[0]).softmax(dim=1)  # B * S
+        sample_softmax = (sample_softmax - sample_softmax.max(dim=1, keepdim=True)[0]).softmax(dim=1)  # B * S
         sample_sigmoid = (pos_neg_tag * (observed - sample)).sigmoid()  # B * S
         loss = -(sample_sigmoid * sample_softmax).sum(dim=1).log()  # B
         if loss_sum == 1:

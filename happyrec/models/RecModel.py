@@ -91,13 +91,13 @@ class RecModel(Model):
             index_dict = dataset.eval_all_iids(index_dict, index=index)
         return index_dict
 
-    def dataset_collate_batch(self, dataset, batch: list) -> dict:
-        result = {}
-        for c in [LABEL, IID]:
-            result[c] = dataset.collate_padding([b[c] for b in batch], padding=0)
-        for c in [UID, TIME]:
-            result[c] = dataset.collate_stack([b[c] for b in batch])
-        return result
+    # def dataset_collate_batch(self, dataset, batch: list) -> dict:
+    #     result = {}
+    #     for c in [LABEL, IID]:
+    #         result[c] = dataset.collate_padding([b[c] for b in batch], padding=0)
+    #     for c in [UID, TIME]:
+    #         result[c] = dataset.collate_stack([b[c] for b in batch])
+    #     return result
 
     def init_metrics(self, train_metrics=None, val_metrics=None, test_metrics=None, *args, **kwargs):
         if train_metrics is not None:
