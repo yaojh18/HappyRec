@@ -22,5 +22,6 @@ TRAIN_PHASE = 0
 VAL_PHASE = 1
 TEST_PHASE = 2
 
+TRAIN_POS_HIS = 'train_pos_his'
 PREDICTION = 'prediction'
 LOSS = 'loss'

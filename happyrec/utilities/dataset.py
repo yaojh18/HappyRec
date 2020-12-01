@@ -9,6 +9,7 @@ from ..configs.settings import *
 from ..utilities.io import *
 from ..utilities.rec import group_user_history_df, sample_iids
 
+
 def random_split_data(all_data_file, dataset_name, vt_ratio=0.1):
     """
     随机切分已经生成的数据集文件 *.all.csv -> *.train.csv,*.validation.csv,*.test.csv
@@ -120,8 +121,9 @@ def random_sample_eval_iids(dataset_name, sample_n=1000):
     test_df = pd.read_csv(os.path.join(dir_name, TEST_FILE + '.csv'), sep='\t')
     item_df = pd.read_csv(os.path.join(dir_name, ITEM_FILE + '.csv'), sep='\t')
     user_his = group_user_history_df([train_df, val_df, test_df])
-    test_neg = sample_iids(sample_n=sample_n, index=test_df[UID].values, iids=len(item_df[IID]), exclude_iids=user_his)
-    val_neg = sample_iids(sample_n=sample_n, index=val_df[UID].values, iids=len(item_df[IID]), exclude_iids=user_his)
+    item_num = len(item_df[IID])
+    test_neg = sample_iids(sample_n=sample_n, uids=test_df[UID].values, item_num=item_num, exclude_iids=user_his)
+    val_neg = sample_iids(sample_n=sample_n, uids=val_df[UID].values, item_num=item_num, exclude_iids=user_his)
     test_c = [','.join([str(i) for i in neg]) for neg in test_neg]
     test_iids = pd.DataFrame(data={EVAL_IIDS: test_c})
     test_iids.to_csv(os.path.join(dir_name, TEST_IIDS_FILE + '.csv'), sep='\t', index=False)

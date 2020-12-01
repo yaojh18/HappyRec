@@ -21,8 +21,9 @@ def main():
     LOGGER.setLevel(logging.DEBUG)
     dataset = 'ml100k-5-1'
     # # define model (required)
-    model_name = WideDeep
-    model = model_name(train_sample_n=1, eval_sample_n=100, num_workers=4, es_patience=20)
+    model_name = BiasedMF
+    model = model_name(train_sample_n=1, eval_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4)
+    # model = model_name(train_sample_n=1, eval_sample_n=999, num_workers=4, es_patience=20, l2=1e-4)
 
     # # read data (required)
     model.read_data(dataset_dir=os.path.join(DATASET_DIR, dataset))  # option 1
@@ -46,10 +47,10 @@ def main():
     test_set = RecDataset(data=reader.test_data, reader=reader, model=model, buffer_ds=1, phase=TEST_PHASE)
 
     # # init trainer (optional)
-    trainer = Trainer(gpus=1, callbacks=[EarlyStopping(mode='max', patience=20)], weights_summary=None)
+    # trainer = Trainer(gpus=1, callbacks=[EarlyStopping(mode='max', patience=20)], weights_summary=None)
 
     # # fit
-    model.fit()  # option 1
+    model.fit(max_epochs=100)  # option 1
     # model.fit(trainer=trainer, train_data=train_set, val_data=val_set)  # option 2
     # trainer.fit(model=model, train_dataloader=train_set.get_dataloader(),
     #             val_dataloaders=val_set.get_dataloader())  # option 3

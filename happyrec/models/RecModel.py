@@ -60,6 +60,8 @@ class RecModel(Model):
         reader.read_test(filename=TEST_FILE, formatters=formatters)
         reader.read_user(filename=USER_FILE, formatters=formatters)
         reader.read_item(filename=ITEM_FILE, formatters=formatters)
+        if self.train_sample_n > 0 or self.eval_sample_n != 0:
+            reader.group_train_pos_his(label_filter=lambda x: x > 0)
         if self.eval_sample_n != 0:
             reader.read_val_iids(filename=VAL_IIDS_FILE, formatters=formatters, eval_sample_n=self.eval_sample_n)
             reader.read_test_iids(filename=TEST_IIDS_FILE, formatters=formatters, eval_sample_n=self.eval_sample_n)
@@ -80,24 +82,20 @@ class RecModel(Model):
             return current
         return {**current, **formatters}
 
+    def on_train_epoch_start(self) -> None:
+        if self.train_sample_n > 0:
+            self.train_dataset.sample_train_iids(sample_n=self.train_sample_n)
+
     def dataset_get_item(self, dataset, index: int) -> dict:
         if dataset.buffer_ds > 0: return dataset.index_buffer[index]
         index_dict = dataset.get_interaction({}, index=index)
         if dataset.phase == TRAIN_PHASE and self.train_sample_n > 0:
-            index_dict = dataset.sample_iids(index_dict, sample_n=self.train_sample_n)
+            index_dict = dataset.extend_train_iids(index_dict, index=index)
         elif dataset.phase != TRAIN_PHASE and self.eval_sample_n > 0:
             index_dict = dataset.extend_eval_iids(index_dict, index=index, sample_n=self.eval_sample_n)
         elif dataset.phase != TRAIN_PHASE and self.eval_sample_n < 0:
             index_dict = dataset.eval_all_iids(index_dict, index=index)
         return index_dict
-
-    # def dataset_collate_batch(self, dataset, batch: list) -> dict:
-    #     result = {}
-    #     for c in [LABEL, IID]:
-    #         result[c] = dataset.collate_padding([b[c] for b in batch], padding=0)
-    #     for c in [UID, TIME]:
-    #         result[c] = dataset.collate_stack([b[c] for b in batch])
-    #     return result
 
     def init_metrics(self, train_metrics=None, val_metrics=None, test_metrics=None, *args, **kwargs):
         if train_metrics is not None:

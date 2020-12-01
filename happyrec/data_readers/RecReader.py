@@ -4,6 +4,7 @@ from ..configs.constants import *
 from ..configs.settings import *
 from ..utilities.io import *
 from ..utilities.formatter import *
+from ..utilities.rec import group_user_history
 from ..data_readers.DataReader import DataReader
 
 
@@ -49,6 +50,17 @@ class RecReader(DataReader):
                 else np.concatenate([self.test_data[c], c_data], axis=1)
         LOGGER.info("test eval_sample_n = {}".format(test_iids[EVAL_IIDS].shape))
         return test_iids
+
+    def group_train_pos_his(self, label_filter=lambda x: x > 0):
+        LOGGER.debug("group_train_pos_his...")
+        uids, iids, labels = self.train_data[UID], self.train_data[IID], self.train_data[LABEL]
+        index = label_filter(labels)
+        uids, iids = uids[index], iids[index]
+        user_dict = group_user_history(uids, iids)
+        user_history = [np.array(user_dict[uid]) if uid in user_dict else np.array([], dtype=int)
+                        for uid in range(self.user_num)]
+        self.user_data[TRAIN_POS_HIS] = np.array(user_history, dtype=object)
+        return user_dict
 
     def prepare_user_features(self, include_uid: bool = False,
                               multihot_features: str = None, numeric_features: str = None):
@@ -128,70 +140,3 @@ class RecReader(DataReader):
         for i, d in enumerate(data_dicts):
             d[TIME] = times[i]
         return {**mh_f_dict, **nm_f_dict}
-
-    # def user_feature_info(self, include_uid: bool = False,
-    #                       float_f: bool = True, int_f: bool = True, cat_f: bool = True) -> dict:
-    #     LOGGER.debug("prepare user feature info...")
-    #     f_dict, base = {}, 0
-    #     for k in self.user_data:
-    #         if not k.startswith(USER_F) or (not include_uid and k == UID):
-    #             continue
-    #         if cat_f and k.endswith(CAT_F):
-    #             max_f = np.max(self.user_data[k])
-    #             f_dict[k] = (base, base + max_f + 1)
-    #             base += max_f + 1
-    #         if (float_f and k.endswith(FLOAT_F)) or (int_f and k.endswith(INT_F)):
-    #             f_dict[k] = (base, base + 1)
-    #             base += 1
-    #     self.user_features = f_dict
-    #     LOGGER.debug('user_features = {}'.format(f_dict))
-    #     self.user_feature_num = len(f_dict)
-    #     self.user_feature_dim = base
-    #     LOGGER.info('user_feature_num = {}'.format(self.user_feature_num))
-    #     LOGGER.info('user_feature_dim = {}'.format(self.user_feature_dim))
-    #     return f_dict
-    #
-    # def item_feature_info(self, include_iid: bool = False,
-    #                       float_f: bool = True, int_f: bool = True, cat_f: bool = True) -> dict:
-    #     LOGGER.debug("prepare item feature info...")
-    #     f_dict, base = {}, 0
-    #     for k in self.item_data:
-    #         if not k.startswith(ITEM_F) or (not include_iid and k == IID):
-    #             continue
-    #         if cat_f and k.endswith(CAT_F):
-    #             max_f = np.max(self.item_data[k])
-    #             f_dict[k] = (base, base + max_f + 1)
-    #             base += max_f + 1
-    #         if (float_f and k.endswith(FLOAT_F)) or (int_f and k.endswith(INT_F)):
-    #             f_dict[k] = (base, base + 1)
-    #             base += 1
-    #     self.item_features = f_dict
-    #     LOGGER.debug('item_features = {}'.format(f_dict))
-    #     self.item_feature_num = len(f_dict)
-    #     self.item_feature_dim = base
-    #     LOGGER.info('item_feature_num = {}'.format(self.item_feature_num))
-    #     LOGGER.info('item_feature_dim = {}'.format(self.item_feature_dim))
-    #     return f_dict
-    #
-    # def ctxt_feature_info(self, include_time: bool = False,
-    #                       float_f: bool = True, int_f: bool = True, cat_f: bool = True) -> dict:
-    #     LOGGER.debug("prepare context feature info...")
-    #     sets = [self.train_data, self.val_data, self.test_data]
-    #     f_dict, base = {}, 0
-    #     for k in self.train_data:
-    #         if not k.startswith(CTXT_F) or (not include_time and k == TIME):
-    #             continue
-    #         if cat_f and k.endswith(CAT_F):
-    #             max_f = np.max([np.max(d[k]) for d in sets if d is not None and k in d])
-    #             f_dict[k] = (base, base + max_f + 1)
-    #             base += max_f + 1
-    #         if (float_f and k.endswith(FLOAT_F)) or (int_f and k.endswith(INT_F)):
-    #             f_dict[k] = (base, base + 1)
-    #             base += 1
-    #     self.ctxt_features = f_dict
-    #     LOGGER.debug('ctxt_features = {}'.format(f_dict))
-    #     self.ctxt_feature_num = len(f_dict)
-    #     self.ctxt_feature_dim = base
-    #     LOGGER.info('ctxt_feature_num = {}'.format(self.ctxt_feature_num))
-    #     LOGGER.info('ctxt_feature_dim = {}'.format(self.ctxt_feature_dim))
-    #     return f_dict
