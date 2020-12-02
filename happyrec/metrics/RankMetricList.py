@@ -2,6 +2,7 @@
 
 import torch
 import pytorch_lightning as pl
+from collections import defaultdict
 
 from ..configs.constants import *
 from ..metrics.regression import *
@@ -13,7 +14,10 @@ class RankMetricsList(MetricsList):
     support_metrics = {
         'mse': pl.metrics.MeanSquaredError,
         'rmse': RMSE,
-        'hit': HitRatio
+        'hit': HitRatio,
+        'precision': Precision,
+        'recall': Recall,
+        'ndcg': NDCG,
     }
 
     def __init__(self, *args, **kwargs):
@@ -34,27 +38,38 @@ class RankMetricsList(MetricsList):
         return metrics
 
     def init_metrics(self):
+        metric_topks = defaultdict(list)
         for metric in self.metrics_str:
             metric = metric.strip()
-            if metric in self.metrics:
-                continue
-            if '@' not in metric and metric in self.support_metrics:
+            if '@' not in metric and metric in self.support_metrics and metric not in self.metrics:
                 self.metrics[metric] = self.support_metrics[metric](**self.metrics_kwargs)
             elif '@' in metric:
                 rank_m, topk = metric.split('@')
-                if rank_m in self.support_metrics:
-                    self.metrics[metric] = self.support_metrics[rank_m](topk=int(topk), **self.metrics_kwargs)
+                topk = int(topk)
+                if rank_m in self.support_metrics and topk not in metric_topks[rank_m]:
+                    metric_topks[rank_m].append(topk)
                     self.require_rank = True
+        for metric in metric_topks:
+            self.metrics[metric] = self.support_metrics[metric](topks=metric_topks[metric], **self.metrics_kwargs)
 
     def update(self, output: dict, ranked=False) -> None:
         prediction, label = output[PREDICTION], output[LABEL]
         if self.require_rank and not ranked:
-            assert prediction.shape == label.shape
-            prediction, indices = prediction.sort(dim=-1, descending=True)  # ? * K
-            label = label.gather(dim=-1, index=indices)  # ? * K
+            prediction, label = RankMetric.sort_rank(prediction, label)
         for key in self.metrics:
             metric = self.metrics[key]
             if '@' in key:
                 metric.update(prediction, label, ranked=True)
             else:
                 metric.update(prediction, label)
+
+    def compute(self):
+        result = {}
+        for metric in self.metrics:
+            metric_result = self.metrics[metric].compute()
+            if type(metric_result) is not dict:
+                result[metric] = metric_result
+            else:
+                for topk in metric_result:
+                    result["{}@{}".format(metric, topk)] = metric_result[topk]
+        return result

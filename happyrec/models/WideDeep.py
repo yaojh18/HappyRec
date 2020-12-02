@@ -143,7 +143,7 @@ class WideDeep(RecModel):
         if self.numeric_f_num > 0:
             wide_numeric = torch.cat(wide_numeric, dim=-1)  # B * S * nm
             deep_vectors.append(wide_numeric)
-            wide_numeric = wide_numeric * self.numeric_bias.unsqueeze(dim=0).unsqueeze(dim=0)  # B * S * nm
+            wide_numeric = wide_numeric * self.numeric_bias  # B * S * nm
             wide_prediction += wide_numeric.sum(dim=-1)  # B * S
         deep_vectors = torch.cat(deep_vectors, dim=-1).flatten(start_dim=0, end_dim=1)  # (B*S) * fv
         for layer in self.deep_layers:

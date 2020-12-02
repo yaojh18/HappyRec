@@ -217,11 +217,14 @@ class Model(pl.LightningModule):
         return
 
     def fit(self, train_data=None, val_data=None, trainer=None, **kwargs):
+        default_para = {
+            'gpus': 1,
+            'weights_summary': None,
+            'callbacks': [EarlyStopping(mode='max', patience=self.es_patience)]
+        }
+        default_para.update(kwargs)
         if trainer is None:
-            trainer = self.trainer if self.trainer is not None \
-                else pl.Trainer(gpus=1, weights_summary=None,
-                                callbacks=[EarlyStopping(mode='max', patience=self.es_patience)], **kwargs)
-            self.trainer = trainer
+            trainer = self.trainer if self.trainer is not None else pl.Trainer(**default_para)
         if train_data is None:
             train_data = self.get_dataset(phase=TRAIN_PHASE)
         if val_data is None:
