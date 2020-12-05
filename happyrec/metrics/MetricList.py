@@ -46,7 +46,6 @@ class MetricsList(torch.nn.Module):
 
     def compute(self):
         result = {}
-        for metric in self.metrics_str:
-            if metric not in result and metric in self.metrics:
-                result[metric] = self.metrics[metric].compute()
+        for metric in self.metrics:
+            result[metric] = self.metrics[metric].compute()
         return result

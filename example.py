@@ -22,8 +22,8 @@ def main():
     dataset = 'ml100k-5-1'
     # # define model (required)
     model_name = BiasedMF
-    model = model_name(train_sample_n=1, eval_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4)
-    # model = model_name(train_sample_n=1, eval_sample_n=999, num_workers=4, es_patience=20, l2=1e-4)
+    # model = model_name(train_sample_n=1, eval_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4)
+    model = model_name(train_sample_n=3, eval_sample_n=999, num_workers=4, es_patience=20, l2=1e-4)
 
     # # read data (required)
     model.read_data(dataset_dir=os.path.join(DATASET_DIR, dataset))  # option 1
@@ -36,7 +36,8 @@ def main():
     model.summarize(mode='full')
 
     # # init metrics (optional, but recommended)
-    model.init_metrics(train_metrics=None, val_metrics='hit@10', test_metrics='hit@10')
+    model.init_metrics(train_metrics=None, val_metrics='ndcg@10;hit@10',
+                       test_metrics='ndcg@5,10,20,50,100;hit@10;recall@10,20;precision@10')
 
     # # init dataset (optional)
     train_set = model.get_dataset(phase=TRAIN_PHASE)
@@ -50,7 +51,7 @@ def main():
     # trainer = Trainer(gpus=1, callbacks=[EarlyStopping(mode='max', patience=20)], weights_summary=None)
 
     # # fit
-    model.fit(max_epochs=100)  # option 1
+    model.fit(max_epochs=100, gpus=1)  # option 1
     # model.fit(trainer=trainer, train_data=train_set, val_data=val_set)  # option 2
     # trainer.fit(model=model, train_dataloader=train_set.get_dataloader(),
     #             val_dataloaders=val_set.get_dataloader())  # option 3
