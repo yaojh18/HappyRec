@@ -201,3 +201,4 @@ venv.bak/
 .idea
 ./data/
 ./datasets/
+lightning_logs/
