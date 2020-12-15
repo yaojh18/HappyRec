@@ -2,7 +2,7 @@
 
 import os
 import torch
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 from happyrec.models.Model import Model
@@ -18,12 +18,13 @@ from happyrec.configs.constants import *
 
 
 def main():
+    seed_everything(seed=DEFAULT_SEED)
     LOGGER.setLevel(logging.DEBUG)
     dataset = 'ml100k-5-1'
     # # define model (required)
     model_name = BiasedMF
-    # model = model_name(train_sample_n=1, eval_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4)
-    model = model_name(train_sample_n=3, eval_sample_n=999, num_workers=4, es_patience=20, l2=1e-4)
+    model = model_name(train_sample_n=1, eval_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4, lr=1e-3)
+    # model = model_name(train_sample_n=1, eval_sample_n=999, num_workers=4, es_patience=20, l2=1e-4)
 
     # # read data (required)
     model.read_data(dataset_dir=os.path.join(DATASET_DIR, dataset))  # option 1
@@ -51,7 +52,7 @@ def main():
     # trainer = Trainer(gpus=1, callbacks=[EarlyStopping(mode='max', patience=20)], weights_summary=None)
 
     # # fit
-    model.fit(max_epochs=100, gpus=1)  # option 1
+    model.fit(max_epochs=1000, gpus=1)  # option 1
     # model.fit(trainer=trainer, train_data=train_set, val_data=val_set)  # option 2
     # trainer.fit(model=model, train_dataloader=train_set.get_dataloader(),
     #             val_dataloaders=val_set.get_dataloader())  # option 3

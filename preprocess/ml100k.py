@@ -14,7 +14,8 @@ from happyrec.configs.constants import *
 from happyrec.configs.settings import *
 from happyrec.utilities.dataset import random_split_data, leave_out_csv, random_sample_eval_iids
 
-np.random.seed(DEFAULT_SEED)
+# np.random.seed(DEFAULT_SEED)
+np.random.seed(2020)
 print(socket.gethostname())
 
 RAW_DATA = './data/'

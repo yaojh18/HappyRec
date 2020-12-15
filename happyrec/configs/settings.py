@@ -3,7 +3,7 @@ import logging
 
 LOGGER = logging.getLogger("lightning")
 
-DEFAULT_SEED = 2020
+DEFAULT_SEED = 1949
 DATA_DIR = './data/'
 DATASET_DIR = './dataset/'
 
