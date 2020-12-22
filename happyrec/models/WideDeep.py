@@ -4,18 +4,9 @@ import logging
 from argparse import ArgumentParser
 import numpy as np
 
-from ..data_readers.DataReader import DataReader
-from ..data_readers.RecReader import RecReader
-from ..datasets.Dataset import Dataset
-from ..datasets.RecDataset import RecDataset
 from ..configs.constants import *
 from ..configs.settings import *
 from ..models.RecModel import RecModel
-from ..utilities.formatter import split_seq
-from ..modules.loss import BPRRankLoss
-from ..metrics.MetricList import MetricsList
-from ..metrics.RankMetricList import RankMetricsList
-from ..metrics.metrics import METRICS_SMALLER
 
 USER_MH = 'user_mh'
 USER_NM = 'user_nm'
@@ -27,17 +18,17 @@ CTXT_NM = 'ctxt_nm'
 
 class WideDeep(RecModel):
     @staticmethod
-    def parse_model_args(parent_parser):
+    def add_model_specific_args(parent_parser):
         """
         模型命令行参数
         :param parser:
         :param model_name: 模型名称
         :return:
         """
-        parser = ArgumentParser(parents=[parent_parser], add_help=True)
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--layers', type=str, default='[64]',
                             help='Hidden layers in the deep part.')
-        return RecModel.parse_model_args(parser)
+        return RecModel.add_model_specific_args(parser)
 
     def __init__(self, multihot_f_num: int = None, multihot_f_dim: int = None, numeric_f_num: int = None,
                  layers: str = '[64]', *args, **kwargs):
@@ -82,16 +73,6 @@ class WideDeep(RecModel):
         if CTXT_NM in dataset.data:
             index_dict[CTXT_NM] = dataset.data[CTXT_NM][index]
         return index_dict
-
-    # def dataset_collate_batch(self, dataset, batch: list) -> dict:
-    #     result = {}
-    #     for c in [LABEL, IID]:
-    #         if c in batch[0]:
-    #             result[c] = dataset.collate_padding([b[c] for b in batch], padding=0)
-    #     for c in [UID, TIME, USER_MH, USER_NM, ITEM_MH, ITEM_NM, CTXT_MH, CTXT_NM]:
-    #         if c in batch[0]:
-    #             result[c] = dataset.collate_stack([b[c] for b in batch])
-    #     return result
 
     def init_modules(self, *args, **kwargs) -> None:
         self.feature_embeddings = torch.nn.Embedding(self.multihot_f_dim, self.vec_size)

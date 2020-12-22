@@ -6,7 +6,7 @@ import re
 from typing import Optional
 from ..configs.settings import *
 
-from happyrec.configs.constants import *
+from ..configs.constants import *
 
 FEATHER_TYPE = "feather"
 PICKLE_TYPE = "pickle"

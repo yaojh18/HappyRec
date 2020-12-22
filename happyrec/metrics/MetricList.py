@@ -23,7 +23,14 @@ class MetricsList(torch.nn.Module):
         self.init_metrics()
 
     def parse_metrics_str(self, metrics_str: str):
-        return metrics_str.strip().lower().split(';')
+        metrics_str = metrics_str.strip().split(';')
+        metrics = []
+        for metric in metrics_str:
+            metric = metric.strip()
+            if metric == '':
+                continue
+            metrics.append(metric)
+        return metrics
 
     def init_metrics(self):
         for metric in self.metrics_str:

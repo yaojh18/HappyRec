@@ -2,7 +2,7 @@ from typing import Optional, Dict
 
 from numpy import ndarray
 
-from happyrec.utilities.table_data import (
+from ..utilities.table_data import (
     read_table_data, write_table_data, FEATHER_TYPE
 )
 

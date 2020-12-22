@@ -3,7 +3,6 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-from argparse import ArgumentParser
 
 from ..datasets.Dataset import Dataset
 from ..configs.constants import *

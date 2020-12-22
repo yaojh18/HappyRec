@@ -4,10 +4,6 @@ import logging
 from argparse import ArgumentParser
 import numpy as np
 
-from ..data_readers.DataReader import DataReader
-from ..data_readers.RecReader import RecReader
-from ..datasets.Dataset import Dataset
-from ..datasets.RecDataset import RecDataset
 from ..configs.constants import *
 from ..configs.settings import *
 from ..models.Model import Model
@@ -15,7 +11,6 @@ from ..utilities.formatter import split_seq
 from ..modules.loss import BPRRankLoss
 from ..metrics.MetricList import MetricsList
 from ..metrics.RankMetricList import RankMetricsList
-from ..metrics.metrics import METRICS_SMALLER
 
 
 class RecModel(Model):
@@ -23,21 +18,21 @@ class RecModel(Model):
     default_dataset = 'RecDataset'
 
     @staticmethod
-    def parse_model_args(parent_parser):
+    def add_model_specific_args(parent_parser):
         """
         模型命令行参数
         :param parser:
         :param model_name: 模型名称
         :return:
         """
-        parser = ArgumentParser(parents=[parent_parser], add_help=True)
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--train_sample_n', type=int, default=1,
                             help='Number of iids sampling during training.')
         parser.add_argument('--eval_sample_n', type=int, default=-1,
                             help='Number of eval iids during evaluation, all<=-1, rating=0, ranking>0.')
         parser.add_argument('--vec_size', type=int, default=64,
                             help='Vector size of user/item embeddings.')
-        return Model.parse_model_args(parser)
+        return Model.add_model_specific_args(parser)
 
     def __init__(self, train_sample_n: int = 1, eval_sample_n: int = -1,
                  user_num: int = None, item_num: int = None, vec_size: int = 64,
@@ -49,15 +44,10 @@ class RecModel(Model):
         self.item_num = item_num
         self.vec_size = vec_size
 
-    def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None, *args, **kwargs):
-        if reader is None:
-            reader = eval(self.default_reader)(dataset_dir=dataset_dir)
-        self.reader = reader
+    def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None):
+        reader = Model.read_data(self, dataset_dir=dataset_dir, reader=reader, formatters=formatters)
         if formatters is None:
             formatters = self.read_formatters()
-        reader.read_train(filename=TRAIN_FILE, formatters=formatters)
-        reader.read_validation(filename=VAL_FILE, formatters=formatters)
-        reader.read_test(filename=TEST_FILE, formatters=formatters)
         reader.read_user(filename=USER_FILE, formatters=formatters)
         reader.read_item(filename=ITEM_FILE, formatters=formatters)
         if self.train_sample_n > 0 or self.eval_sample_n != 0:

@@ -2,12 +2,12 @@
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
+import copy
 
-from ..data_readers.DataReader import DataReader
-from ..data_readers.RecReader import RecReader
+from ..datasets import *
+from ..data_readers import *
 from ..datasets.Dataset import Dataset
-from ..datasets.RecDataset import RecDataset
 from ..configs.constants import *
 from ..configs.settings import *
 from ..metrics.MetricList import MetricsList
@@ -19,14 +19,14 @@ class Model(pl.LightningModule):
     default_dataset = 'Dataset'
 
     @staticmethod
-    def parse_model_args(parent_parser):
+    def add_model_specific_args(parent_parser):
         """
         模型命令行参数
         :param parser:
         :param model_name: 模型名称
         :return:
         """
-        parser = ArgumentParser(parents=[parent_parser], add_help=True)
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--lr', type=float, default=0.001,
                             help='Learning rate.')
         parser.add_argument('--optimizer', type=str, default='Adam',
@@ -86,7 +86,9 @@ class Model(pl.LightningModule):
 
     def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None):
         if reader is None:
-            reader = eval(self.default_reader)(dataset_dir=dataset_dir)
+            reader = eval('{0}.{0}'.format(self.default_reader))(dataset_dir=dataset_dir)
+        if type(reader) is str:
+            reader = eval('{0}.{0}'.format(reader))(dataset_dir=dataset_dir)
         self.reader = reader
         if formatters is None:
             formatters = self.read_formatters()
@@ -112,20 +114,20 @@ class Model(pl.LightningModule):
         if phase == TRAIN_PHASE:
             if self.train_dataset is not None:
                 return self.train_dataset
-            self.train_dataset = eval(self.default_dataset)(
+            self.train_dataset = eval('{0}.{0}'.format(self.default_dataset))(
                 data=self.reader.train_data, reader=self.reader,
                 model=self, buffer_ds=self.buffer_ds, phase=TRAIN_PHASE)
             return self.train_dataset
         if phase == VAL_PHASE:
             if self.val_dataset is not None:
                 return self.val_dataset
-            self.val_dataset = eval(self.default_dataset)(
+            self.val_dataset = eval('{0}.{0}'.format(self.default_dataset))(
                 data=self.reader.val_data, reader=self.reader, model=self, buffer_ds=self.buffer_ds, phase=VAL_PHASE)
             return self.val_dataset
         if phase == TEST_PHASE:
             if self.test_dataset is not None:
                 return self.test_dataset
-            self.test_dataset = eval(self.default_dataset)(
+            self.test_dataset = eval('{0}.{0}'.format(self.default_dataset))(
                 data=self.reader.test_data, reader=self.reader, model=self, buffer_ds=self.buffer_ds, phase=TEST_PHASE)
             return self.test_dataset
         logging.error("ERROR: unknown phase {}".format(phase))
@@ -217,14 +219,12 @@ class Model(pl.LightningModule):
         return
 
     def fit(self, train_data=None, val_data=None, trainer=None, **kwargs):
-        default_para = {
-            'gpus': 1,
-            'weights_summary': None,
-            'callbacks': [EarlyStopping(mode='max', patience=self.es_patience)]
-        }
+        default_para = copy.deepcopy(DEFAULT_TRAINER_ARGS)
         default_para.update(kwargs)
+        default_para['callbacks'].append(EarlyStopping(mode='max', patience=self.es_patience))
         if trainer is None:
-            trainer = self.trainer if self.trainer is not None else pl.Trainer(**default_para)
+            trainer = self.trainer if self.trainer is not None else \
+                pl.Trainer.from_argparse_args(Namespace(**default_para))
         if train_data is None:
             train_data = self.get_dataset(phase=TRAIN_PHASE)
         if val_data is None:
@@ -250,6 +250,9 @@ class Model(pl.LightningModule):
     def forward(self, batch, *args, **kwargs):
         return {}
 
+    def loss_func(self, out_dict, *args, **kwargs):
+        return
+
     def training_step(self, batch, batch_idx, *args, **kwargs):
         return {}
 
@@ -264,14 +267,14 @@ class Model(pl.LightningModule):
     def validation_step(self, batch, *args, **kwargs):
         out_dict = self.forward(batch)
         out_dict[LABEL] = batch[LABEL]
-        if self.val_metrics is not None:
+        if self.val_metrics is not None and len(self.val_metrics.metrics) > 0:
             self.val_metrics.update(out_dict)
         else:
             out_dict[LOSS] = self.loss_func(out_dict)
         return out_dict
 
     def validation_epoch_end(self, outputs):
-        if self.val_metrics is not None:
+        if self.val_metrics is not None and len(self.val_metrics.metrics) > 0:
             metrics = self.val_metrics.compute()
             val_metrics = {}
             for key in metrics:
@@ -282,7 +285,7 @@ class Model(pl.LightningModule):
             if metrics_name in METRICS_SMALLER:
                 early_stop_on = -early_stop_on
         else:
-            loss = torch.stack([o[LOSS] for o in outputs])
+            loss = torch.stack([o[LOSS] for o in outputs]).sum()
             early_stop_on = -loss
         self.log('early_stop_on', early_stop_on)
 

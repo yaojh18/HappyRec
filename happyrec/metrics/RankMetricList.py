@@ -28,6 +28,9 @@ class RankMetricsList(MetricsList):
         metrics_str = metrics_str.strip().split(';')
         metrics = []
         for metric in metrics_str:
+            metric = metric.strip()
+            if metric == '':
+                continue
             if '@' not in metric:
                 metrics.append(metric)
             else:
