@@ -4,6 +4,7 @@ import os
 import torch
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger
 
 from happyrec.models.Model import Model
 from happyrec.models.RecModel import RecModel
@@ -37,8 +38,8 @@ def main():
     model.summarize(mode='full')
 
     # # init metrics (optional, but recommended)
-    model.init_metrics(train_metrics=None, val_metrics='ndcg@10;hit@10',
-                       test_metrics='ndcg@5,10,20,50,100;hit@10;recall@10,20;precision@10')
+    model.init_metrics(train_metrics=None, val_metrics='ndcg@10,hit@10',
+                       test_metrics='ndcg@5.10.20.50.100,hit@10,recall@10.20,precision@10')
 
     # # init dataset (optional)
     train_set = model.get_dataset(phase=TRAIN_PHASE)
@@ -52,7 +53,12 @@ def main():
     # trainer = Trainer(gpus=1, callbacks=[EarlyStopping(mode='max', patience=20)], weights_summary=None)
 
     # # fit
-    model.fit(max_epochs=1000, gpus=1)  # option 1
+    logger = TensorBoardLogger(
+        save_dir=os.getcwd(),
+        version='abc',
+        name='model'
+    )
+    model.fit(max_epochs=1000, gpus=1, logger=logger)  # option 1
     # model.fit(trainer=trainer, train_data=train_set, val_data=val_set)  # option 2
     # trainer.fit(model=model, train_dataloader=train_set.get_dataloader(),
     #             val_dataloaders=val_set.get_dataloader())  # option 3

@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 
 from ..configs.constants import *
 from ..metrics.regression import RMSE
+from ..metrics.metrics import *
 
 
 class MetricsList(torch.nn.Module):
@@ -23,7 +24,7 @@ class MetricsList(torch.nn.Module):
         self.init_metrics()
 
     def parse_metrics_str(self, metrics_str: str):
-        metrics_str = metrics_str.strip().split(';')
+        metrics_str = metrics_str.strip().split(METRIC_SPLITTER)
         metrics = []
         for metric in metrics_str:
             metric = metric.strip()

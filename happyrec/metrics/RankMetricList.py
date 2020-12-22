@@ -8,6 +8,7 @@ from ..configs.constants import *
 from ..metrics.regression import *
 from ..metrics.ranking import *
 from ..metrics.MetricList import MetricsList
+from ..metrics.metrics import *
 
 
 class RankMetricsList(MetricsList):
@@ -25,7 +26,7 @@ class RankMetricsList(MetricsList):
         super().__init__(*args, **kwargs)
 
     def parse_metrics_str(self, metrics_str: str):
-        metrics_str = metrics_str.strip().split(';')
+        metrics_str = metrics_str.strip().split(METRIC_SPLITTER)
         metrics = []
         for metric in metrics_str:
             metric = metric.strip()
@@ -35,7 +36,7 @@ class RankMetricsList(MetricsList):
                 metrics.append(metric)
             else:
                 metric, topk = metric.split('@')
-                topk = [k.strip() for k in topk.split(',')]
+                topk = [k.strip() for k in topk.split(RANK_SPLITTER)]
                 for k in topk:
                     metrics.append(metric + '@' + k)
         return metrics
