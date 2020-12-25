@@ -1,9 +1,15 @@
 # coding=utf-8
 import torch
+import numpy as np
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger, TestTubeLogger
 from argparse import ArgumentParser, Namespace
 import copy
+import inspect
+import os
+import hashlib
+import yaml
 
 from ..datasets import *
 from ..data_readers import *
@@ -12,6 +18,8 @@ from ..configs.constants import *
 from ..configs.settings import *
 from ..metrics.MetricList import MetricsList
 from ..metrics.metrics import METRICS_SMALLER
+from ..utilities.logging import *
+from ..utilities.io import check_mkdir
 
 
 class Model(pl.LightningModule):
@@ -29,7 +37,7 @@ class Model(pl.LightningModule):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--lr', type=float, default=0.001,
                             help='Learning rate.')
-        parser.add_argument('--optimizer', type=str, default='Adam',
+        parser.add_argument('--optimizer_name', type=str, default='Adam',
                             help='optimizer: GD, Adam, Adagrad')
         parser.add_argument('--dropout', type=float, default=0.2,
                             help='Dropout probability for each deep layer')
@@ -58,16 +66,16 @@ class Model(pl.LightningModule):
         return parser
 
     def __init__(self,
-                 lr: float = 0.001, optimizer: str = 'Adam', dropout: float = 0.2,
+                 lr: float = 0.001, optimizer_name: str = 'Adam', dropout: float = 0.2,
                  l2: float = 1e-6, l2_bias: int = 0, loss_sum: int = 1,
                  buffer_ds: int = 0, batch_size: int = 128, eval_batch_size: int = 128, num_workers: int = 5,
                  es_patience: int = 20,
                  *args, **kwargs):
         super(Model, self).__init__()
         self.lr = lr
-        self.optimizer_name = optimizer
+        self.optimizer_name = optimizer_name
         self.dropout = dropout
-        self.l2_weight = l2
+        self.l2 = l2
         self.l2_bias = l2_bias
         self.loss_sum = loss_sum
         self.buffer_ds = buffer_ds
@@ -77,12 +85,29 @@ class Model(pl.LightningModule):
         self.es_patience = es_patience
 
         self.train_metrics = None
+        self.train_metrics_buf = []
         self.val_metrics = None
+        self.val_metrics_buf = []
         self.test_metrics = None
+        self.test_metrics_buf = []
         self.reader = None
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
+
+        self.log_dir = None
+
+    def save_hyperparameters(self, *args, frame=None) -> None:
+        base_list = inspect.getmro(type(self))
+        paras_list = []
+        for base in base_list:
+            paras = inspect.getfullargspec(base.__init__)
+            paras_list.extend(paras.args)
+        paras_list = [p for p in sorted(list(set(paras_list))) if p != 'self']
+        paras_dict = {}
+        for p in paras_list:
+            paras_dict[p] = eval('self.' + p)
+        self.hparams.update(paras_dict)
 
     def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None):
         if reader is None:
@@ -109,7 +134,7 @@ class Model(pl.LightningModule):
 
     def get_dataset(self, phase):
         if self.reader is None:
-            LOGGER.error('Model.Reader is None, Please read data first. (model.read_data(...))')
+            DEFAULT_LOGGER.error('Model.Reader is None, Please read data first. (model.read_data(...))')
             return
         if phase == TRAIN_PHASE:
             if self.train_dataset is not None:
@@ -130,7 +155,7 @@ class Model(pl.LightningModule):
             self.test_dataset = eval('{0}.{0}'.format(self.default_dataset))(
                 data=self.reader.test_data, reader=self.reader, model=self, buffer_ds=self.buffer_ds, phase=TEST_PHASE)
             return self.test_dataset
-        logging.error("ERROR: unknown phase {}".format(phase))
+        DEFAULT_LOGGER.error("ERROR: unknown phase {}".format(phase))
         return
 
     def dataset_length(self, dataset):
@@ -188,23 +213,23 @@ class Model(pl.LightningModule):
             else:
                 weight_p.append(p)
         if self.l2_bias == 1:
-            optimize_dict = [{'params': weight_p + bias_p, 'weight_decay': self.l2_weight}]
+            optimize_dict = [{'params': weight_p + bias_p, 'weight_decay': self.l2}]
         else:
-            optimize_dict = [{'params': weight_p, 'weight_decay': self.l2_weight},
+            optimize_dict = [{'params': weight_p, 'weight_decay': self.l2},
                              {'params': bias_p, 'weight_decay': 0.0}]
 
         optimizer_name = self.optimizer_name.lower()
         if optimizer_name == 'gd':
-            LOGGER.info("Optimizer: GD")
+            DEFAULT_LOGGER.info("Optimizer: GD")
             optimizer = torch.optim.SGD(optimize_dict, lr=self.lr)
         elif optimizer_name == 'adagrad':
-            LOGGER.info("Optimizer: Adagrad")
+            DEFAULT_LOGGER.info("Optimizer: Adagrad")
             optimizer = torch.optim.Adagrad(optimize_dict, lr=self.lr)
         elif optimizer_name == 'adam':
-            LOGGER.info("Optimizer: Adam")
+            DEFAULT_LOGGER.info("Optimizer: Adam")
             optimizer = torch.optim.Adam(optimize_dict, lr=self.lr)
         else:
-            LOGGER.error("Unknown Optimizer: " + self.optimizer_name)
+            DEFAULT_LOGGER.error("Unknown Optimizer: " + self.optimizer_name)
             assert self.optimizer_name in ['GD', 'Adagrad', 'Adam']
             optimizer = torch.optim.SGD(optimize_dict, lr=self.lr)
         return optimizer
@@ -218,13 +243,40 @@ class Model(pl.LightningModule):
             torch.nn.init.normal_(m.weight, mean=0.0, std=0.01)
         return
 
-    def fit(self, train_data=None, val_data=None, trainer=None, **kwargs):
+    def init_log_dir(self, save_dir=MODEL_DIR, name=None, version=None):
+        if name is None:
+            name = os.path.basename(self.reader.dataset_dir)
+        if version is None:
+            model_name = self.__class__.__name__
+            random_seed = os.environ["PL_GLOBAL_SEED"]
+            self.save_hyperparameters()
+            hash_code = hash_hparams(self.hparams)
+            version = os.path.join(model_name, '_'.join([random_seed, hash_code]))
+        self.log_dir = os.path.join(os.path.join(save_dir, name, version, ''))
+        check_mkdir(self.log_dir)
+        return save_dir, name, version
+
+    def init_trainer(self, save_dir=MODEL_DIR, name=None, version=None, **kwargs) -> pl.Trainer:
+        save_dir, name, version = self.init_log_dir(save_dir=save_dir, name=name, version=version)
+
         default_para = copy.deepcopy(DEFAULT_TRAINER_ARGS)
         default_para.update(kwargs)
-        default_para['callbacks'].append(EarlyStopping(mode='max', patience=self.es_patience))
+        default_para['callbacks'].append(EarlyStopping(mode='max', patience=self.es_patience, verbose=True))
+        default_para['callbacks'].append(
+            ModelCheckpoint(mode='max', monitor=EARLY_STOP_ON, save_last=True,
+                            dirpath=os.path.join(self.log_dir, CKPT_DIR), filename=CKPT_F,
+                            verbose=DEFAULT_LOGGER.level <= logging.DEBUG))
+        csv_logger = CSVLogger(save_dir=save_dir, name=name, version=version)
+        # tb_logger = TensorBoardLogger(save_dir=save_dir, description=version, name=dataset_name)
+        default_para['logger'].append(csv_logger)
+        # default_para['logger'].append(tb_logger)
+        logger_add_file_handler(os.path.join(self.log_dir, LOG_F))
+        trainer = pl.Trainer.from_argparse_args(Namespace(**default_para))
+        return trainer
+
+    def fit(self, train_data=None, val_data=None, trainer=None, **kwargs):
         if trainer is None:
-            trainer = self.trainer if self.trainer is not None else \
-                pl.Trainer.from_argparse_args(Namespace(**default_para))
+            trainer = self.trainer if self.trainer is not None else self.init_trainer(**kwargs)
         if train_data is None:
             train_data = self.get_dataset(phase=TRAIN_PHASE)
         if val_data is None:
@@ -237,7 +289,7 @@ class Model(pl.LightningModule):
 
     def test(self, test_data=None, trainer=None, **kwargs):
         if trainer is None:
-            trainer = self.trainer
+            trainer = self.trainer if self.trainer is not None else self.init_trainer(**kwargs)
         if test_data is None:
             test_data = self.get_dataset(phase=TEST_PHASE)
         if isinstance(test_data, Dataset):
@@ -256,14 +308,6 @@ class Model(pl.LightningModule):
     def training_step(self, batch, batch_idx, *args, **kwargs):
         return {}
 
-    def training_epoch_end(self, outputs) -> None:
-        if self.train_metrics is not None:
-            metrics = self.train_metrics.compute()
-            val_metrics = {}
-            for key in metrics:
-                val_metrics['train_' + key] = metrics[key]
-            self.log_dict(metrics)
-
     def validation_step(self, batch, *args, **kwargs):
         out_dict = self.forward(batch)
         out_dict[LABEL] = batch[LABEL]
@@ -273,22 +317,6 @@ class Model(pl.LightningModule):
             out_dict[LOSS] = self.loss_func(out_dict)
         return out_dict
 
-    def validation_epoch_end(self, outputs):
-        if self.val_metrics is not None and len(self.val_metrics.metrics) > 0:
-            metrics = self.val_metrics.compute()
-            val_metrics = {}
-            for key in metrics:
-                val_metrics['val_' + key] = metrics[key]
-            self.log_dict(val_metrics)
-            metrics_name = self.val_metrics.metrics_str[0]
-            early_stop_on = metrics[metrics_name]
-            if metrics_name in METRICS_SMALLER:
-                early_stop_on = -early_stop_on
-        else:
-            loss = torch.stack([o[LOSS] for o in outputs]).sum()
-            early_stop_on = -loss
-        self.log('early_stop_on', early_stop_on)
-
     def test_step(self, batch, *args, **kwargs):
         out_dict = self.forward(batch)
         if LABEL in batch:
@@ -297,10 +325,101 @@ class Model(pl.LightningModule):
                 self.test_metrics.update(out_dict)
         return out_dict
 
-    def test_epoch_end(self, outputs):
-        if self.test_metrics is not None:
-            metrics = self.test_metrics.compute()
-            test_metrics = {}
+    def on_save_checkpoint(self, checkpoint) -> None:
+        self.save_hyperparameters()
+        self.logger.log_hyperparams(self.hparams)
+
+    def on_load_checkpoint(self, checkpoint) -> None:
+        self.save_hyperparameters()
+        self.init_modules()
+
+    def load_model(self, checkpoint_path=None, hparams_file=None):
+        checkpoint = {}
+        if checkpoint_path is not None:
+            DEFAULT_LOGGER.info('Load model from {}'.format(checkpoint_path))
+            checkpoint = torch.load(checkpoint_path)
+        hparams = {}
+        if self.CHECKPOINT_HYPER_PARAMS_KEY in checkpoint:
+            hparams = checkpoint[self.CHECKPOINT_HYPER_PARAMS_KEY]
+        if hparams_file is not None:
+            DEFAULT_LOGGER.info('Load hparams from {}'.format(hparams_file))
+            hparams.update(yaml.load(open(hparams_file, 'r'), Loader=yaml.FullLoader))
+        self.hparams.update(hparams)
+        for p in self.hparams:
+            exec("self.{} = self.hparams['{}']".format(p, p))
+        if STATE_DICT in checkpoint:
+            try:
+                self.load_state_dict(checkpoint[STATE_DICT])
+            except:
+                self.init_modules()
+                self.load_state_dict(checkpoint[STATE_DICT])
+
+    def on_train_end(self) -> None:
+        if self.log_dir is not None:
+            checkpoint_path = os.path.join(self.log_dir, CKPT_DIR, CKPT_F + '.ckpt')
+            hparams_file = os.path.join(self.log_dir, 'hparams.yaml')
+            self.load_model(checkpoint_path=checkpoint_path, hparams_file=hparams_file)
+
+    def training_epoch_end(self, outputs) -> None:
+        if self.train_metrics is not None and len(self.train_metrics.metrics) > 0:
+            metrics = self.train_metrics.compute()
+            self.train_metrics_buf.append(metrics)
+
+            train_metrics = {}
             for key in metrics:
+                train_metrics['train_' + key] = metrics[key]
+            self.log_dict(train_metrics)
+
+    def on_train_epoch_end(self, outputs) -> None:
+        if len(self.train_metrics_buf) > 0:
+            prefix = '[Train Epoch {:4}]'.format(self.current_epoch + 1)
+            DEFAULT_LOGGER.info(prefix + format_log_metrics_list(self.train_metrics_buf))
+
+    def validation_epoch_end(self, outputs):
+        if self.val_metrics is not None and len(self.val_metrics.metrics) > 0:
+            metrics = self.val_metrics.compute()
+            self.val_metrics_buf.append(metrics)
+            es_name = self.val_metrics.metrics_str[0]
+            early_stop_on = metrics[es_name]
+            if es_name in METRICS_SMALLER:
+                early_stop_on = -early_stop_on
+
+            val_metrics = {}
+            for key in self.val_metrics.metrics_str:
+                val_metrics['val_' + key] = metrics[key]
+            self.log_dict(val_metrics)
+        else:
+            loss = torch.stack([o[LOSS] for o in outputs]).sum()
+            early_stop_on = -loss
+        self.log(EARLY_STOP_ON, early_stop_on)
+
+    def on_validation_epoch_end(self) -> None:
+        if len(self.val_metrics_buf) > 0:
+            if 0 < self.trainer.val_check_interval < 1:
+                frequency = int(1.0 / self.trainer.val_check_interval)
+                mod = (len(self.val_metrics_buf) - 1) % frequency
+                epoch = int((len(self.val_metrics_buf) - 1) / frequency)
+                if epoch > 0 and mod == 0:
+                    epoch += self.trainer.val_check_interval * frequency - 1
+                else:
+                    epoch += mod * self.trainer.val_check_interval
+                prefix = '[Validation Epoch {:>6}]'.format('{:.2f}'.format(epoch))
+            else:
+                epoch = self.trainer.check_val_every_n_epoch * (len(self.val_metrics_buf) - 1)
+                prefix = '[Validation Epoch {:4}]'.format(epoch)
+            DEFAULT_LOGGER.info(prefix + format_log_metrics_list(self.val_metrics_buf))
+
+    def test_epoch_end(self, outputs):
+        if self.test_metrics is not None and len(self.test_metrics.metrics) > 0:
+            metrics = self.test_metrics.compute()
+            self.test_metrics_buf.append(metrics)
+
+            test_metrics = {}
+            for key in self.test_metrics.metrics_str:
                 test_metrics['test_' + key] = metrics[key]
             self.log_dict(test_metrics)
+
+    def on_test_epoch_end(self) -> None:
+        if len(self.test_metrics_buf) > 0:
+            prefix = '[Test {:4}]'.format(len(self.test_metrics_buf))
+            DEFAULT_LOGGER.info(prefix + format_log_metrics_list(self.test_metrics_buf))

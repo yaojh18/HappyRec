@@ -55,8 +55,10 @@ class RecModel(Model):
         if self.eval_sample_n != 0:
             reader.read_val_iids(filename=VAL_IIDS_FILE, formatters=formatters, eval_sample_n=self.eval_sample_n)
             reader.read_test_iids(filename=TEST_IIDS_FILE, formatters=formatters, eval_sample_n=self.eval_sample_n)
-        self.user_num = reader.user_num
-        self.item_num = reader.item_num
+        if self.user_num is None:
+            self.user_num = reader.user_num
+        if self.item_num is None:
+            self.item_num = reader.item_num
         return reader
 
     def read_formatters(self, formatters=None) -> dict:

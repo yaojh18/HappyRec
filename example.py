@@ -16,11 +16,12 @@ from happyrec.datasets.Dataset import Dataset
 from happyrec.datasets.RecDataset import RecDataset
 from happyrec.configs.settings import *
 from happyrec.configs.constants import *
+from happyrec.utilities.logging import DEFAULT_LOGGER
 
 
 def main():
     seed_everything(seed=DEFAULT_SEED)
-    LOGGER.setLevel(logging.DEBUG)
+    DEFAULT_LOGGER.setLevel(logging.DEBUG)
     dataset = 'ml100k-5-1'
     # # define model (required)
     model_name = BiasedMF
@@ -53,12 +54,7 @@ def main():
     # trainer = Trainer(gpus=1, callbacks=[EarlyStopping(mode='max', patience=20)], weights_summary=None)
 
     # # fit
-    logger = TensorBoardLogger(
-        save_dir=os.getcwd(),
-        version='abc',
-        name='model'
-    )
-    model.fit(max_epochs=1000, gpus=1, logger=logger)  # option 1
+    model.fit(max_epochs=1000, gpus=1)  # option 1
     # model.fit(trainer=trainer, train_data=train_set, val_data=val_set)  # option 2
     # trainer.fit(model=model, train_dataloader=train_set.get_dataloader(),
     #             val_dataloaders=val_set.get_dataloader())  # option 3
@@ -67,7 +63,6 @@ def main():
     test_result = model.test()  # option 1
     # test_result = model.test(trainer=trainer, test_data=test_set)  # option 2
     # test_result = trainer.test(model=model, test_dataloaders=test_set.get_dataloader())  # option 3
-    LOGGER.info(test_result)
     return
 
 

@@ -17,18 +17,17 @@ class MetricsList(torch.nn.Module):
     def __init__(self, metrics, **kwargs):
         super().__init__()
         self.metrics_kwargs = kwargs
-        if type(metrics) is str:
-            metrics = self.parse_metrics_str(metrics)
-        self.metrics_str = metrics
+        self.metrics_str = self.parse_metrics_str(metrics)
         self.metrics = torch.nn.ModuleDict()
         self.init_metrics()
 
     def parse_metrics_str(self, metrics_str: str):
-        metrics_str = metrics_str.strip().split(METRIC_SPLITTER)
+        if type(metrics_str) is str:
+            metrics_str = metrics_str.lower().strip().split(METRIC_SPLITTER)
         metrics = []
         for metric in metrics_str:
             metric = metric.strip()
-            if metric == '':
+            if metric == '' or metric not in self.support_metrics:
                 continue
             metrics.append(metric)
         return metrics
@@ -36,10 +35,9 @@ class MetricsList(torch.nn.Module):
     def init_metrics(self):
         for metric in self.metrics_str:
             metric = metric.strip()
-            if metric in self.support_metrics:
-                if metric in self.metrics:
-                    continue
-                self.metrics[metric] = self.support_metrics[metric](**self.metrics_kwargs)
+            if metric in self.metrics:
+                continue
+            self.metrics[metric] = self.support_metrics[metric](**self.metrics_kwargs)
 
     def forward(self, *args, **kwargs):
         self.update(*args, **kwargs)

@@ -1,12 +1,13 @@
 # coding=utf-8
 import logging
 
-LOGGER = logging.getLogger("lightning")
-
 DEFAULT_SEED = 1949
 DATA_DIR = './data/'
 DATASET_DIR = './dataset/'
 MODEL_DIR = './model/'
+CKPT_DIR = 'checkpoints/'  # MODEL_DIR/CKPT_DIR
+CKPT_F = 'best'  # MODEL_DIR/CKPT_DIR/CKPT_F.ckpt
+LOG_F = 'log.txt'  # MODEL_DIR/LOG_F
 
 # filenames without suffix, currently support .csv, .pickle, .feather
 TRAIN_FILE = 'train'
@@ -27,9 +28,11 @@ DEFAULT_TRAINER_ARGS = {
     'fast_dev_run': 0,
     'gpus': 1,
     'gradient_clip_val': 0.0,
+    'logger': [],
     'max_epochs': 1000,
     'min_epochs': 1,
     'profiler': None,
+    'progress_bar_refresh_rate': 10,
     'val_check_interval': 1.0,
-    'weights_summary': None
+    'weights_summary': None,
 }

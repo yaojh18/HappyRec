@@ -25,3 +25,6 @@ TEST_PHASE = 2
 TRAIN_POS_HIS = 'train_pos_his'
 PREDICTION = 'prediction'
 LOSS = 'loss'
+
+EARLY_STOP_ON = 'early_stop_on'
+STATE_DICT = 'state_dict'

@@ -26,16 +26,19 @@ class RankMetricsList(MetricsList):
         super().__init__(*args, **kwargs)
 
     def parse_metrics_str(self, metrics_str: str):
-        metrics_str = metrics_str.strip().split(METRIC_SPLITTER)
+        if type(metrics_str) is str:
+            metrics_str = metrics_str.lower().strip().split(METRIC_SPLITTER)
         metrics = []
         for metric in metrics_str:
             metric = metric.strip()
             if metric == '':
                 continue
-            if '@' not in metric:
+            if '@' not in metric and metric in self.support_metrics:
                 metrics.append(metric)
             else:
                 metric, topk = metric.split('@')
+                if metric not in self.support_metrics:
+                    continue
                 topk = [k.strip() for k in topk.split(RANK_SPLITTER)]
                 for k in topk:
                     metrics.append(metric + '@' + k)
@@ -45,12 +48,12 @@ class RankMetricsList(MetricsList):
         metric_topks = defaultdict(list)
         for metric in self.metrics_str:
             metric = metric.strip()
-            if '@' not in metric and metric in self.support_metrics and metric not in self.metrics:
+            if '@' not in metric and metric not in self.metrics:
                 self.metrics[metric] = self.support_metrics[metric](**self.metrics_kwargs)
             elif '@' in metric:
                 rank_m, topk = metric.split('@')
                 topk = int(topk)
-                if rank_m in self.support_metrics and topk not in metric_topks[rank_m]:
+                if topk not in metric_topks[rank_m]:
                     metric_topks[rank_m].append(topk)
                     self.require_rank = True
         for metric in metric_topks:

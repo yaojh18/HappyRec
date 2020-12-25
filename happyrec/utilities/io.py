@@ -5,8 +5,8 @@ import pandas as pd
 import re
 from typing import Optional
 from ..configs.settings import *
-
 from ..configs.constants import *
+from ..utilities.logging import DEFAULT_LOGGER
 
 FEATHER_TYPE = "feather"
 PICKLE_TYPE = "pickle"
@@ -21,7 +21,7 @@ def check_mkdir(path: str) -> str:
     else:
         dirname = os.path.dirname(path)
     if not os.path.exists(dirname):
-        LOGGER.info('make dirs: {}'.format(dirname))
+        DEFAULT_LOGGER.info('make dirs: {}'.format(dirname))
         os.makedirs(dirname)
     return dirname
 
@@ -37,7 +37,7 @@ def read_df(dirname: str, filename: str) -> Optional[pd.DataFrame]:
                 return pd.read_pickle(file_path)
             elif df_type == CSV_TYPE:
                 return pd.read_csv(file_path, sep='\t')
-    LOGGER.warning('WARNING: cannot find {}/{}'.format(dirname, filename))
+    DEFAULT_LOGGER.warning('WARNING: cannot find {}/{}'.format(dirname, filename))
     return df
 
 
