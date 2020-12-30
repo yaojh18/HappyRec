@@ -1,5 +1,7 @@
 # coding=utf-8
 
+PROJECT_NAME = 'happyrec'
+
 LABEL = 'label'
 
 UID = 'u_id_c'

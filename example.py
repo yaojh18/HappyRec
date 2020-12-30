@@ -25,8 +25,9 @@ def main():
     dataset = 'ml100k-5-1'
     # # define model (required)
     model_name = BiasedMF
-    model = model_name(train_sample_n=1, eval_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4, lr=1e-3)
-    # model = model_name(train_sample_n=1, eval_sample_n=999, num_workers=4, es_patience=20, l2=1e-4)
+    model = model_name(train_sample_n=1, val_sample_n=-1, test_sample_n=-1,
+                       num_workers=4, es_patience=20, l2=1e-4, lr=1e-3)
+    # model = model_name(train_sample_n=1, val_sample_n=999, test_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4)
 
     # # read data (required)
     model.read_data(dataset_dir=os.path.join(DATASET_DIR, dataset))  # option 1

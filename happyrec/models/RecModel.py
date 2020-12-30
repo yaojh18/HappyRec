@@ -28,18 +28,21 @@ class RecModel(Model):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--train_sample_n', type=int, default=1,
                             help='Number of iids sampling during training.')
-        parser.add_argument('--eval_sample_n', type=int, default=-1,
-                            help='Number of eval iids during evaluation, all<=-1, rating=0, ranking>0.')
+        parser.add_argument('--val_sample_n', type=int, default=-1,
+                            help='Number of eval iids during validation, all<=-1, rating=0, ranking>0.')
+        parser.add_argument('--test_sample_n', type=int, default=-1,
+                            help='Number of eval iids during testing, all<=-1, rating=0, ranking>0.')
         parser.add_argument('--vec_size', type=int, default=64,
                             help='Vector size of user/item embeddings.')
         return Model.add_model_specific_args(parser)
 
-    def __init__(self, train_sample_n: int = 1, eval_sample_n: int = -1,
+    def __init__(self, train_sample_n: int = 1, val_sample_n: int = -1, test_sample_n: int = -1,
                  user_num: int = None, item_num: int = None, vec_size: int = 64,
                  *args, **kwargs):
         super(RecModel, self).__init__(*args, **kwargs)
         self.train_sample_n = train_sample_n
-        self.eval_sample_n = eval_sample_n
+        self.val_sample_n = val_sample_n
+        self.test_sample_n = test_sample_n
         self.user_num = user_num
         self.item_num = item_num
         self.vec_size = vec_size
@@ -50,11 +53,12 @@ class RecModel(Model):
             formatters = self.read_formatters()
         reader.read_user(filename=USER_FILE, formatters=formatters)
         reader.read_item(filename=ITEM_FILE, formatters=formatters)
-        if self.train_sample_n > 0 or self.eval_sample_n != 0:
+        if self.train_sample_n > 0 or self.val_sample_n != 0 or self.test_sample_n != 0:
             reader.group_train_pos_his(label_filter=lambda x: x > 0)
-        if self.eval_sample_n != 0:
-            reader.read_val_iids(filename=VAL_IIDS_FILE, formatters=formatters, eval_sample_n=self.eval_sample_n)
-            reader.read_test_iids(filename=TEST_IIDS_FILE, formatters=formatters, eval_sample_n=self.eval_sample_n)
+        if self.val_sample_n != 0:
+            reader.read_val_iids(filename=VAL_IIDS_FILE, formatters=formatters, sample_n=self.val_sample_n)
+        if self.test_sample_n != 0:
+            reader.read_test_iids(filename=TEST_IIDS_FILE, formatters=formatters, sample_n=self.test_sample_n)
         if self.user_num is None:
             self.user_num = reader.user_num
         if self.item_num is None:
@@ -83,9 +87,12 @@ class RecModel(Model):
         index_dict = dataset.get_interaction({}, index=index)
         if dataset.phase == TRAIN_PHASE and self.train_sample_n > 0:
             index_dict = dataset.extend_train_iids(index_dict, index=index)
-        elif dataset.phase != TRAIN_PHASE and self.eval_sample_n > 0:
-            index_dict = dataset.extend_eval_iids(index_dict, index=index, sample_n=self.eval_sample_n)
-        elif dataset.phase != TRAIN_PHASE and self.eval_sample_n < 0:
+        elif dataset.phase == VAL_PHASE and self.val_sample_n > 0:
+            index_dict = dataset.extend_eval_iids(index_dict, index=index, sample_n=self.val_sample_n)
+        elif dataset.phase == TEST_PHASE and self.test_sample_n > 0:
+            index_dict = dataset.extend_eval_iids(index_dict, index=index, sample_n=self.test_sample_n)
+        elif (dataset.phase == VAL_PHASE and self.val_sample_n < 0) or \
+                (dataset.phase == TEST_PHASE and self.test_sample_n < 0):
             index_dict = dataset.eval_all_iids(index_dict, index=index)
         return index_dict
 
@@ -97,12 +104,12 @@ class RecModel(Model):
             self.train_metrics = train_metrics
         if val_metrics is not None:
             if not isinstance(val_metrics, MetricsList):
-                val_metrics = MetricsList(val_metrics) if self.eval_sample_n == 0 \
+                val_metrics = MetricsList(val_metrics) if self.val_sample_n == 0 \
                     else RankMetricsList(val_metrics)
             self.val_metrics = val_metrics
         if test_metrics is not None:
             if not isinstance(test_metrics, MetricsList):
-                test_metrics = MetricsList(test_metrics) if self.eval_sample_n == 0 \
+                test_metrics = MetricsList(test_metrics) if self.test_sample_n == 0 \
                     else RankMetricsList(test_metrics)
             self.test_metrics = test_metrics
 

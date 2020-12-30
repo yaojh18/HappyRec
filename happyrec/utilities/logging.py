@@ -5,6 +5,7 @@ import os
 import hashlib
 
 from ..metrics.metrics import METRICS_SMALLER
+from ..configs.constants import *
 
 DEFAULT_LOGGER = logging.getLogger("lightning")
 
@@ -34,7 +35,7 @@ def logger_add_file_handler(file_path: str):
 
 
 def hash_hparams(hparams):
-    hash_code = hashlib.blake2b(digest_size=10)
+    hash_code = hashlib.blake2b(digest_size=10, key=PROJECT_NAME.encode('utf-8'), person=PROJECT_NAME.encode('utf-8'))
     hash_code.update(str(hparams).encode('utf-8'))
     hash_code = hash_code.hexdigest()
     return hash_code

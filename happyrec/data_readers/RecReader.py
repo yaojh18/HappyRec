@@ -30,26 +30,26 @@ class RecReader(DataReader):
         DEFAULT_LOGGER.info("item_num = {}".format(self.item_num))
         return self.item_data
 
-    def read_val_iids(self, filename: str, formatters: dict, eval_sample_n: int = None) -> dict:
+    def read_val_iids(self, filename: str, formatters: dict, sample_n: int = None) -> dict:
         DEFAULT_LOGGER.debug("read {}...".format(filename))
         df = read_df(dirname=self.dataset_dir, filename=filename)
         val_iids = df2dict(df, formatters=formatters)
         for c in val_iids:
-            c_data = filter_seqs(val_iids[c], max_len=eval_sample_n, padding=0)
+            c_data = filter_seqs(val_iids[c], max_len=sample_n, padding=0)
             self.val_data[c] = c_data if c not in self.val_data \
                 else np.concatenate([self.val_data[c], c_data], axis=1)
-        DEFAULT_LOGGER.info("validation eval_sample_n = {}".format(val_iids[EVAL_IIDS].shape))
+        DEFAULT_LOGGER.info("validation sample_n = {}".format(val_iids[EVAL_IIDS].shape))
         return val_iids
 
-    def read_test_iids(self, filename: str, formatters: dict, eval_sample_n: int = None) -> dict:
+    def read_test_iids(self, filename: str, formatters: dict, sample_n: int = None) -> dict:
         DEFAULT_LOGGER.debug("read {}...".format(filename))
         df = read_df(dirname=self.dataset_dir, filename=filename)
         test_iids = df2dict(df, formatters=formatters)
         for c in test_iids:
-            c_data = filter_seqs(test_iids[c], max_len=eval_sample_n, padding=0)
+            c_data = filter_seqs(test_iids[c], max_len=sample_n, padding=0)
             self.test_data[c] = c_data if c not in self.test_data \
                 else np.concatenate([self.test_data[c], c_data], axis=1)
-        DEFAULT_LOGGER.info("test eval_sample_n = {}".format(test_iids[EVAL_IIDS].shape))
+        DEFAULT_LOGGER.info("test sample_n = {}".format(test_iids[EVAL_IIDS].shape))
         return test_iids
 
     def group_train_pos_his(self, label_filter=lambda x: x > 0):

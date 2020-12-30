@@ -53,7 +53,7 @@ class Model(pl.LightningModule):
                             help='Batch size during training.')
         parser.add_argument('--eval_batch_size', type=int, default=128,
                             help='Batch size during testing.')
-        parser.add_argument('--num_workers', type=int, default=5,
+        parser.add_argument('--num_workers', type=int, default=4,
                             help='Number of processors when get batches in DataLoader')
         parser.add_argument('--es_patience', type=int, default=20,
                             help='#epochs with no improvement after which training will be stopped (early stop).')
