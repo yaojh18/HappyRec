@@ -4,11 +4,11 @@ import torch.nn.functional as F
 
 
 class SoftmaxRankLoss(torch.nn.Module):
-    def forward(self, prediction, label, real_batch_size, loss_sum):
-        prediction = prediction.view([-1, real_batch_size]).transpose(0, 1)  # b * (1+s)
-        pre_softmax = (prediction - prediction.max(dim=1, keepdim=True)[0]).softmax(dim=1)  # b * (1+s)
-        target_pre = pre_softmax[:, 0]  # b
-        loss = -(target_pre * label + (1 - label) * (1 - target_pre)).log()  # b
+    def forward(self, prediction, label, neg_thresh: int = 0, loss_sum: int = 1):
+        pos_neg_tag = label[:, :1].gt(neg_thresh).float()  # B * 1
+        pre_softmax = (prediction - prediction.max(dim=1, keepdim=True)[0]).softmax(dim=1)  # B * (1+S)
+        target_pre = pre_softmax[:, :1]  # B * 1
+        loss = -(target_pre * pos_neg_tag + (1 - pos_neg_tag) * (1 - target_pre)).log()  # B * 1
         if loss_sum == 1:
             return loss.sum()
         return loss.mean()
@@ -26,8 +26,8 @@ class BPRRankLoss(torch.nn.Module):
           year={2018},
           organization={ACM}
         }
-        :param prediction: 预测值 [B * S]
-        :param label: 标签 [B * ?]
+        :param prediction: 预测值 [B * (1+S)]
+        :param label: 标签 [B * (1+S)]
         :param loss_sum: 1=sum, other= mean
         :return:
         '''

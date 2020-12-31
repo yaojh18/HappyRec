@@ -8,7 +8,7 @@ from ..configs.constants import *
 from ..configs.settings import *
 from ..models.Model import Model
 from ..utilities.formatter import split_seq
-from ..modules.loss import BPRRankLoss
+from ..modules.loss import BPRRankLoss, SoftmaxRankLoss
 from ..metrics.MetricList import MetricsList
 from ..metrics.RankMetricList import RankMetricsList
 
@@ -132,6 +132,7 @@ class RecModel(Model):
         prediction, label = out_dict[PREDICTION], out_dict[LABEL]
         if self.train_sample_n > 0:
             loss = BPRRankLoss()(prediction, label, neg_thresh=0, loss_sum=self.loss_sum)
+            # loss = SoftmaxRankLoss()(prediction, label, neg_thresh=0, loss_sum=self.loss_sum)
         else:
             loss = torch.nn.MSELoss(reduction='sum' if self.loss_sum == 1 else 'mean')(prediction, label)
         return loss

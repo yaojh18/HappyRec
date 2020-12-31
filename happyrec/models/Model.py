@@ -10,6 +10,8 @@ import inspect
 import os
 import hashlib
 import yaml
+import logging
+import sys
 
 from ..datasets import *
 from ..data_readers import *
@@ -95,6 +97,7 @@ class Model(pl.LightningModule):
         self.val_dataset = None
         self.test_dataset = None
 
+        self.model_logger = DEFAULT_LOGGER
         self.log_dir = None
 
     def save_hyperparameters(self, *args, frame=None) -> None:
@@ -134,7 +137,7 @@ class Model(pl.LightningModule):
 
     def get_dataset(self, phase):
         if self.reader is None:
-            DEFAULT_LOGGER.error('Model.Reader is None, Please read data first. (model.read_data(...))')
+            self.model_logger.error('Model.Reader is None, Please read data first. (model.read_data(...))')
             return
         if phase == TRAIN_PHASE:
             if self.train_dataset is not None:
@@ -155,7 +158,7 @@ class Model(pl.LightningModule):
             self.test_dataset = eval('{0}.{0}'.format(self.default_dataset))(
                 data=self.reader.test_data, reader=self.reader, model=self, buffer_ds=self.buffer_ds, phase=TEST_PHASE)
             return self.test_dataset
-        DEFAULT_LOGGER.error("ERROR: unknown phase {}".format(phase))
+        self.model_logger.error("ERROR: unknown phase {}".format(phase))
         return
 
     def dataset_length(self, dataset):
@@ -220,16 +223,16 @@ class Model(pl.LightningModule):
 
         optimizer_name = self.optimizer_name.lower()
         if optimizer_name == 'gd':
-            DEFAULT_LOGGER.info("Optimizer: GD")
+            self.model_logger.info("Optimizer: GD")
             optimizer = torch.optim.SGD(optimize_dict, lr=self.lr)
         elif optimizer_name == 'adagrad':
-            DEFAULT_LOGGER.info("Optimizer: Adagrad")
+            self.model_logger.info("Optimizer: Adagrad")
             optimizer = torch.optim.Adagrad(optimize_dict, lr=self.lr)
         elif optimizer_name == 'adam':
-            DEFAULT_LOGGER.info("Optimizer: Adam")
+            self.model_logger.info("Optimizer: Adam")
             optimizer = torch.optim.Adam(optimize_dict, lr=self.lr)
         else:
-            DEFAULT_LOGGER.error("Unknown Optimizer: " + self.optimizer_name)
+            self.model_logger.error("Unknown Optimizer: " + self.optimizer_name)
             assert self.optimizer_name in ['GD', 'Adagrad', 'Adam']
             optimizer = torch.optim.SGD(optimize_dict, lr=self.lr)
         return optimizer
@@ -243,7 +246,7 @@ class Model(pl.LightningModule):
             torch.nn.init.normal_(m.weight, mean=0.0, std=0.01)
         return
 
-    def init_log_dir(self, save_dir=MODEL_DIR, name=None, version=None):
+    def init_logger(self, save_dir=MODEL_DIR, name=None, version=None):
         if name is None:
             name = os.path.basename(self.reader.dataset_dir)
         if version is None:
@@ -254,10 +257,17 @@ class Model(pl.LightningModule):
             version = os.path.join(model_name, '_'.join([random_seed, hash_code]))
         self.log_dir = os.path.join(os.path.join(save_dir, name, version, ''))
         check_mkdir(self.log_dir)
+        model_logger = logging.getLogger(self.__class__.__name__)
+        model_logger.setLevel(DEFAULT_LOGGER.level)
+        for h in model_logger.handlers:
+            model_logger.removeHandler(h)
+        logger_add_file_handler(model_logger, os.path.join(self.log_dir, LOG_F))
+        model_logger.addHandler(logging.StreamHandler(sys.stdout))
+        self.model_logger = model_logger
         return save_dir, name, version
 
     def init_trainer(self, save_dir=MODEL_DIR, name=None, version=None, **kwargs) -> pl.Trainer:
-        save_dir, name, version = self.init_log_dir(save_dir=save_dir, name=name, version=version)
+        save_dir, name, version = self.init_logger(save_dir=save_dir, name=name, version=version)
 
         default_para = copy.deepcopy(DEFAULT_TRAINER_ARGS)
         default_para.update(kwargs)
@@ -270,7 +280,6 @@ class Model(pl.LightningModule):
         # tb_logger = TensorBoardLogger(save_dir=save_dir, description=version, name=dataset_name)
         default_para['logger'].append(csv_logger)
         # default_para['logger'].append(tb_logger)
-        logger_add_file_handler(os.path.join(self.log_dir, LOG_F))
         trainer = pl.Trainer.from_argparse_args(Namespace(**default_para))
         return trainer
 
@@ -336,13 +345,13 @@ class Model(pl.LightningModule):
     def load_model(self, checkpoint_path=None, hparams_file=None):
         checkpoint = {}
         if checkpoint_path is not None:
-            DEFAULT_LOGGER.info('Load model from {}'.format(checkpoint_path))
+            self.model_logger.info('Load model from {}'.format(checkpoint_path))
             checkpoint = torch.load(checkpoint_path)
         hparams = {}
         if self.CHECKPOINT_HYPER_PARAMS_KEY in checkpoint:
             hparams = checkpoint[self.CHECKPOINT_HYPER_PARAMS_KEY]
         if hparams_file is not None:
-            DEFAULT_LOGGER.info('Load hparams from {}'.format(hparams_file))
+            self.model_logger.info('Load hparams from {}'.format(hparams_file))
             hparams.update(yaml.load(open(hparams_file, 'r'), Loader=yaml.FullLoader))
         self.hparams.update(hparams)
         for p in self.hparams:
@@ -373,7 +382,7 @@ class Model(pl.LightningModule):
     def on_train_epoch_end(self, outputs) -> None:
         if len(self.train_metrics_buf) > 0:
             prefix = '[Train Epoch {:4}]'.format(self.current_epoch + 1)
-            DEFAULT_LOGGER.info(prefix + format_log_metrics_list(self.train_metrics_buf))
+            self.model_logger.info(prefix + format_log_metrics_list(self.train_metrics_buf))
 
     def validation_epoch_end(self, outputs):
         if self.val_metrics is not None and len(self.val_metrics.metrics) > 0:
@@ -407,7 +416,7 @@ class Model(pl.LightningModule):
             else:
                 epoch = self.trainer.check_val_every_n_epoch * (len(self.val_metrics_buf) - 1)
                 prefix = '[Validation Epoch {:4}]'.format(epoch)
-            DEFAULT_LOGGER.info(prefix + format_log_metrics_list(self.val_metrics_buf))
+            self.model_logger.info(prefix + format_log_metrics_list(self.val_metrics_buf))
 
     def test_epoch_end(self, outputs):
         if self.test_metrics is not None and len(self.test_metrics.metrics) > 0:
@@ -422,4 +431,4 @@ class Model(pl.LightningModule):
     def on_test_epoch_end(self) -> None:
         if len(self.test_metrics_buf) > 0:
             prefix = '[Test {:4}]'.format(len(self.test_metrics_buf))
-            DEFAULT_LOGGER.info(prefix + format_log_metrics_list(self.test_metrics_buf))
+            self.model_logger.info(prefix + format_log_metrics_list(self.test_metrics_buf))

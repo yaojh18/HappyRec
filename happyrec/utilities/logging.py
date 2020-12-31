@@ -25,12 +25,12 @@ def format_log_metrics_list(metrics_buf: list):
     return log_str
 
 
-def logger_add_file_handler(file_path: str):
-    for h in DEFAULT_LOGGER.handlers:
+def logger_add_file_handler(logger, file_path: str, mode='a'):
+    for h in logger.handlers:
         if type(h) is logging.FileHandler:
             if h.baseFilename == os.path.abspath(file_path):
                 return
-    DEFAULT_LOGGER.addHandler(logging.FileHandler(filename=file_path))
+    logger.addHandler(logging.FileHandler(filename=file_path, mode=mode))
     return
 
 
