@@ -36,3 +36,7 @@ DEFAULT_TRAINER_ARGS = {
     'val_check_interval': 1.0,
     'weights_summary': None,
 }
+
+# GLOBAL_ARGS = {
+#     'pbar': True
+# }

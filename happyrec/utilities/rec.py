@@ -1,5 +1,6 @@
 # coding=utf-8
 
+import sys
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -25,8 +26,10 @@ def group_user_history_df(df, label_filter=lambda x: x > 0) -> dict:
 
 
 def sample_iids(sample_n, uids, item_num, exclude_iids=None, replace=False, verbose=True):
+    # if verbose and GLOBAL_ARGS['pbar']:
     if verbose:
-        uids = tqdm(uids, dynamic_ncols=True, mininterval=1, leave=False, desc='sample_iids')
+        uids = tqdm(uids, dynamic_ncols=True, mininterval=1, leave=False, file=sys.stdout,
+                    desc='sample_iids')
 
     global_exclude = None if type(exclude_iids) is dict \
         else set([]) if exclude_iids is None else set(exclude_iids)

@@ -4,5 +4,5 @@ METRIC_SPLITTER = ','
 RANK_SPLITTER = '.'
 
 METRICS_SMALLER = {
-    'rmse', 'mse', 'mae'
+    'rmse', 'mse', 'mae', 'loss'
 }

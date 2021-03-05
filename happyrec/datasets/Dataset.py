@@ -1,6 +1,7 @@
 # coding=utf-8
 
 import torch
+import sys
 import numpy as np
 from tqdm import tqdm
 from argparse import ArgumentParser
@@ -11,13 +12,13 @@ from ..utilities.formatter import pad2same_length
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, data: dict, reader, model, phase: int,
-                 buffer_ds: int = 0,
+    def __init__(self, data: dict, reader, model, phase: int, buffer_ds: int = 0,
                  *args, **kwargs):
         self.data = data
         self.reader = reader
         self.model = model
         self.phase = phase
+        self.dataset_logger = model.model_logger
 
         self.buffer_ds = buffer_ds
         self.index_buffer = None
@@ -33,11 +34,16 @@ class Dataset(torch.utils.data.Dataset):
     def build_buffer(self):
         buffer = []
         self.buffer_ds = 0
-        for i in tqdm(range(len(self)),
-                      leave=False, ncols=100, mininterval=1, desc='Buffer Phase-{}'.format(self.phase)):
+
+        # it = range(len(self))
+        # if GLOBAL_ARGS['pbar']:
+        #     it = tqdm(it, leave=False, ncols=100, mininterval=1, desc='Buffer Phase-{}'.format(self.phase))
+        # for i in it:
+        for i in tqdm(range(len(self)), leave=False, ncols=100, mininterval=1, file=sys.stdout,
+                      desc='Buffer Phase-{}'.format(self.phase)):
             buffer.append(self.model.dataset_get_item(dataset=self, index=i))
         self.buffer_ds = 1
-        LOGGER.debug('dataset build buffer phase = {}'.format(self.phase))
+        self.dataset_logger.debug('dataset build buffer phase = {}'.format(self.phase))
         return buffer
 
     def collate_batch(self, batch):

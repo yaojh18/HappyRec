@@ -48,9 +48,9 @@ class RecModel(Model):
         self.vec_size = vec_size
 
     def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None):
-        reader = Model.read_data(self, dataset_dir=dataset_dir, reader=reader, formatters=formatters)
         if formatters is None:
             formatters = self.read_formatters()
+        reader = Model.read_data(self, dataset_dir=dataset_dir, reader=reader, formatters=formatters)
         reader.read_user(filename=USER_FILE, formatters=formatters)
         reader.read_item(filename=ITEM_FILE, formatters=formatters)
         if self.train_sample_n > 0 or self.val_sample_n != 0 or self.test_sample_n != 0:

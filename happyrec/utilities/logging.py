@@ -1,13 +1,30 @@
 # coding=utf-8
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import csv_logs
+from pytorch_lightning.loggers.base import rank_zero_experiment
 import logging
 import os
+import sys
 import hashlib
+from tqdm import tqdm
 
 from ..metrics.metrics import METRICS_SMALLER
 from ..configs.constants import *
 
-DEFAULT_LOGGER = logging.getLogger("lightning")
+LIGHTNING_LOGGER = logging.getLogger("lightning")
+for h in LIGHTNING_LOGGER.handlers:
+    LIGHTNING_LOGGER.removeHandler(h)
+LIGHTNING_LOGGER.addHandler(logging.StreamHandler(sys.stdout))
+# DEFAULT_LOGGER = logging.getLogger("happyrec")
+DEFAULT_LOGGER = LIGHTNING_LOGGER
+
+
+def format_log_metrics_dict(metrics: dict):
+    log_str = ''
+    for key in metrics:
+        log_str += ' ' + key
+        log_str += '= {:.4f} '.format(metrics[key])
+    return log_str.strip()
 
 
 def format_log_metrics_list(metrics_buf: list):
@@ -23,6 +40,20 @@ def format_log_metrics_list(metrics_buf: list):
         log_str += ' *' + key if better else ' ' + key
         log_str += '= {:.4f} '.format(metrics[key])
     return log_str
+
+
+def metrics_list_best_iter(metrics_buf: list):
+    best = 0
+    for it, metrics in enumerate(metrics_buf):
+        better = True
+        for key in metrics:
+            if (key in METRICS_SMALLER and metrics[key] > metrics_buf[best][key]) or \
+                    (key not in METRICS_SMALLER and metrics[key] < metrics_buf[best][key]):
+                better = False
+                break
+        if better:
+            best = it
+    return best
 
 
 def logger_add_file_handler(logger, file_path: str, mode='a'):
@@ -43,4 +74,117 @@ def hash_hparams(hparams):
 
 class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
     def _get_metric_interpolated_filepath_name(self, epoch, ckpt_name_metrics):
+        # filepath = self.format_checkpoint_name(epoch, step, ckpt_name_metrics)
+        #
+        # version_cnt = self.STARTING_VERSION
+        # while self.file_exists(filepath, trainer) and filepath != del_filepath:
+        #     filepath = self.format_checkpoint_name(epoch, step, ckpt_name_metrics, ver=version_cnt)
+        #     version_cnt += 1
+        #
+        # return filepath
         return self.format_checkpoint_name(epoch, ckpt_name_metrics)
+
+
+class ExperimentWriter(csv_logs.ExperimentWriter):
+    def __init__(self, log_dir: str) -> None:
+        self.hparams = {}
+        self.metrics = []
+
+        self.log_dir = log_dir
+        # if os.path.exists(self.log_dir) and os.listdir(self.log_dir):
+        #     rank_zero_warn(
+        #         f"Experiment logs directory {self.log_dir} exists and is not empty."
+        #         " Previous log files in this directory will be deleted when the new ones are saved!"
+        #     )
+        os.makedirs(self.log_dir, exist_ok=True)
+        self.metrics_file_path = os.path.join(self.log_dir, self.NAME_METRICS_FILE)
+
+
+class CSVLogger(csv_logs.CSVLogger):
+    @property
+    @rank_zero_experiment
+    def experiment(self) -> ExperimentWriter:
+        r"""
+        Actual ExperimentWriter object. To use ExperimentWriter features in your
+        :class:`~pytorch_lightning.core.lightning.LightningModule` do the following.
+        Example::
+            self.logger.experiment.some_experiment_writer_function()
+        """
+        if self._experiment:
+            return self._experiment
+
+        os.makedirs(self.root_dir, exist_ok=True)
+        self._experiment = ExperimentWriter(log_dir=self.log_dir)
+        return self._experiment
+
+
+class LitProgressBar(pl.callbacks.progress.ProgressBar):
+
+    def init_sanity_tqdm(self) -> tqdm:
+        """ Override this to customize the tqdm bar for the validation sanity run. """
+        bar = tqdm(
+            desc='Validation sanity check',
+            position=(2 * self.process_position),
+            disable=self.is_disabled,
+            leave=False,
+            # dynamic_ncols=True,
+            ncols=100,
+            file=sys.stdout,
+        )
+        return bar
+
+    def init_train_tqdm(self) -> tqdm:
+        """ Override this to customize the tqdm bar for training. """
+        bar = tqdm(
+            desc='Training',
+            initial=self.train_batch_idx,
+            position=(2 * self.process_position),
+            disable=self.is_disabled,
+            leave=False,
+            # dynamic_ncols=True,
+            ncols=100,
+            file=sys.stdout,
+            smoothing=0,
+        )
+        return bar
+
+    def init_predict_tqdm(self) -> tqdm:
+        """ Override this to customize the tqdm bar for predicting. """
+        bar = tqdm(
+            desc='Predicting',
+            initial=self.train_batch_idx,
+            position=(2 * self.process_position),
+            disable=self.is_disabled,
+            leave=False,
+            # dynamic_ncols=True,
+            ncols=100,
+            file=sys.stdout,
+            smoothing=0,
+        )
+        return bar
+
+    def init_validation_tqdm(self) -> tqdm:
+        """ Override this to customize the tqdm bar for validation. """
+        bar = tqdm(
+            desc='Validating',
+            position=(2 * self.process_position + 1),
+            disable=self.is_disabled,
+            leave=False,
+            # dynamic_ncols=True,
+            ncols=100,
+            file=sys.stdout
+        )
+        return bar
+
+    def init_test_tqdm(self) -> tqdm:
+        """ Override this to customize the tqdm bar for testing. """
+        bar = tqdm(
+            desc="Testing",
+            position=(2 * self.process_position),
+            disable=self.is_disabled,
+            leave=False,
+            # dynamic_ncols=True,
+            ncols=100,
+            file=sys.stdout
+        )
+        return bar
