@@ -5,6 +5,9 @@ DEFAULT_SEED = 1949
 DATA_DIR = './data/'
 DATASET_DIR = './dataset/'
 MODEL_DIR = './model/'
+CMD_DIR = './command/'
+LOG_CSV_DIR = './log_csv/'
+
 CKPT_DIR = 'checkpoints/'  # MODEL_DIR/CKPT_DIR
 CKPT_F = 'best'  # MODEL_DIR/CKPT_DIR/CKPT_F.ckpt
 LOG_F = 'log.txt'  # MODEL_DIR/LOG_F

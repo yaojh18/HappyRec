@@ -34,10 +34,9 @@ class RecReader(DataReader):
         df = read_df(dirname=self.dataset_dir, filename=filename)
         val_iids = df2dict(df, formatters=formatters)
         for c in val_iids:
-            c_data = filter_seqs(val_iids[c], max_len=sample_n, padding=0)
-            self.val_data[c] = c_data if c not in self.val_data \
-                else np.concatenate([self.val_data[c], c_data], axis=1)
-        self.reader_logger.info("validation sample_n = {}".format(val_iids[EVAL_IIDS].shape))
+            c_data = val_iids[c] if c not in self.val_data else np.concatenate([self.val_data[c], c_data], axis=1)
+            self.val_data[c] = filter_seqs(c_data, max_len=sample_n, padding=0)
+        self.reader_logger.info("validation sample_n = {}".format(self.val_data[EVAL_IIDS].shape))
         return val_iids
 
     def read_test_iids(self, filename: str, formatters: dict, sample_n: int = None) -> dict:
@@ -45,10 +44,9 @@ class RecReader(DataReader):
         df = read_df(dirname=self.dataset_dir, filename=filename)
         test_iids = df2dict(df, formatters=formatters)
         for c in test_iids:
-            c_data = filter_seqs(test_iids[c], max_len=sample_n, padding=0)
-            self.test_data[c] = c_data if c not in self.test_data \
-                else np.concatenate([self.test_data[c], c_data], axis=1)
-        self.reader_logger.info("test sample_n = {}".format(test_iids[EVAL_IIDS].shape))
+            c_data = test_iids[c] if c not in self.test_data else np.concatenate([self.test_data[c], c_data], axis=1)
+            self.test_data[c] = filter_seqs(c_data, max_len=sample_n, padding=0)
+        self.reader_logger.info("test sample_n = {}".format(self.test_data[EVAL_IIDS].shape))
         return test_iids
 
     def group_train_pos_his(self, label_filter=lambda x: x > 0):
@@ -140,3 +138,23 @@ class RecReader(DataReader):
         for i, d in enumerate(data_dicts):
             d[TIME] = times[i]
         return {**mh_f_dict, **nm_f_dict}
+
+    def prepare_user_pos_his(self, max_his=-1, label_filter=lambda x: x > 0):
+        user_dict = {}
+        data_dicts = [d for d in [self.train_data, self.val_data, self.test_data] if d is not None]
+        for data in data_dicts:
+            uids, iids, labels = data[UID], data[IID], data[LABEL]
+            lohilist = []
+            for uid, iid, label in zip(uids, iids, labels):
+                if uid not in user_dict:
+                    user_dict[uid] = []
+                hi = len(user_dict[uid])
+                lo = 0 if max_his < 0 else max(0, len(user_dict[uid]) - max_his)
+                lohilist.append([lo, hi])
+                if label_filter(label):
+                    user_dict[uid].append(iid)
+            data[UHIS_POS] = np.array(lohilist)
+        user_history = [np.array(user_dict[uid]) if uid in user_dict else np.array([], dtype=int)
+                        for uid in range(self.user_num)]
+        self.user_data[UHIS_POS_SEQ] = np.array(user_history, dtype=object)
+        return user_dict
