@@ -9,11 +9,11 @@ from ..configs.settings import *
 from ..models.RecModel import RecModel
 
 USER_MH = 'user_mh'
-USER_NM = 'user_nm'
+USER_NU = 'user_nm'
 ITEM_MH = 'item_mh'
-ITEM_NM = 'item_nm'
+ITEM_NU = 'item_nm'
 CTXT_MH = 'ctxt_mh'
-CTXT_NM = 'ctxt_nm'
+CTXT_NU = 'ctxt_nm'
 
 
 class WideDeep(RecModel):
@@ -40,9 +40,9 @@ class WideDeep(RecModel):
 
     def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None, *args, **kwargs):
         reader = super().read_data(dataset_dir=dataset_dir, reader=reader, formatters=formatters)
-        reader.prepare_user_features(include_uid=True, multihot_features=USER_MH, numeric_features=USER_NM)
-        reader.prepare_item_features(include_iid=True, multihot_features=ITEM_MH, numeric_features=ITEM_NM)
-        reader.prepare_ctxt_features(include_time=False, multihot_features=CTXT_MH, numeric_features=CTXT_NM)
+        reader.prepare_user_features(include_uid=True, multihot_features=USER_MH, numeric_features=USER_NU)
+        reader.prepare_item_features(include_iid=True, multihot_features=ITEM_MH, numeric_features=ITEM_NU)
+        reader.prepare_ctxt_features(include_time=False, multihot_features=CTXT_MH, numeric_features=CTXT_NU)
         self.multihot_f_num = reader.user_multihot_f_num + reader.item_multihot_f_num + reader.ctxt_multihot_f_num
         self.multihot_f_dim = reader.user_multihot_f_dim + reader.item_multihot_f_dim + reader.ctxt_multihot_f_dim
         self.numeric_f_num = reader.user_numeric_f_num + reader.item_numeric_f_num + reader.ctxt_numeric_f_num
@@ -62,16 +62,16 @@ class WideDeep(RecModel):
         reader = dataset.reader
         if USER_MH in reader.user_data:
             index_dict[USER_MH] = reader.user_data[USER_MH][index_dict[UID]]
-        if USER_NM in reader.user_data:
-            index_dict[USER_NM] = reader.user_data[USER_NM][index_dict[UID]]
+        if USER_NU in reader.user_data:
+            index_dict[USER_NU] = reader.user_data[USER_NU][index_dict[UID]]
         if ITEM_MH in reader.item_data:
             index_dict[ITEM_MH] = reader.item_data[ITEM_MH][index_dict[IID]] + reader.user_multihot_f_dim
-        if ITEM_NM in reader.item_data:
-            index_dict[ITEM_NM] = reader.item_data[ITEM_NM][index_dict[IID]]
+        if ITEM_NU in reader.item_data:
+            index_dict[ITEM_NU] = reader.item_data[ITEM_NU][index_dict[IID]]
         if CTXT_MH in dataset.data:
             index_dict[CTXT_MH] = dataset.data[CTXT_MH][index] + reader.user_multihot_f_dim + reader.item_multihot_f_dim
-        if CTXT_NM in dataset.data:
-            index_dict[CTXT_NM] = dataset.data[CTXT_NM][index]
+        if CTXT_NU in dataset.data:
+            index_dict[CTXT_NU] = dataset.data[CTXT_NU][index]
         return index_dict
 
     def init_modules(self, *args, **kwargs) -> None:
@@ -102,16 +102,16 @@ class WideDeep(RecModel):
             deep_vectors.append(user_mh_vectors)
             user_mh_bias = self.multihot_bias(batch[USER_MH]).squeeze(dim=-1)  # B * 1 * uf
             wide_prediction += user_mh_bias.sum(dim=-1)  # B * S
-        if USER_NM in batch:
-            wide_numeric.append(batch[USER_NM].expand(-1, sample_n, -1))  # B * S * unm
+        if USER_NU in batch:
+            wide_numeric.append(batch[USER_NU].expand(-1, sample_n, -1))  # B * S * unm
         if ITEM_MH in batch:
             item_mh_vectors = self.feature_embeddings(batch[ITEM_MH])  # B * S * if * v
             item_mh_vectors = item_mh_vectors.flatten(start_dim=-2)  # B * S * (if*v)
             deep_vectors.append(item_mh_vectors)
             item_mh_bias = self.multihot_bias(batch[ITEM_MH]).squeeze(dim=-1)  # B * S * if
             wide_prediction = wide_prediction + item_mh_bias.sum(dim=-1)  # B * S
-        if ITEM_NM in batch:
-            wide_numeric.append(batch[ITEM_NM])  # B * S * inm
+        if ITEM_NU in batch:
+            wide_numeric.append(batch[ITEM_NU])  # B * S * inm
         if CTXT_MH in batch:
             ctxt_mh_vectors = self.feature_embeddings(batch[CTXT_MH])  # B * cf * v
             ctxt_mh_vectors = ctxt_mh_vectors.flatten(start_dim=-2). \
@@ -119,8 +119,8 @@ class WideDeep(RecModel):
             deep_vectors.append(ctxt_mh_vectors)
             ctxt_mh_bias = self.multihot_bias(batch[CTXT_MH]).squeeze(dim=-1)  # B * cf
             wide_prediction += ctxt_mh_bias.sum(dim=-1, keepdim=True)  # B * S
-        if CTXT_NM in batch:
-            wide_numeric.append(batch[CTXT_NM].unsqueeze(dim=1).expand(-1, sample_n, -1))  # B * S * cnm
+        if CTXT_NU in batch:
+            wide_numeric.append(batch[CTXT_NU].unsqueeze(dim=1).expand(-1, sample_n, -1))  # B * S * cnm
         if self.numeric_f_num > 0:
             wide_numeric = torch.cat(wide_numeric, dim=-1)  # B * S * nm
             deep_vectors.append(wide_numeric)

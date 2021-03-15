@@ -30,3 +30,6 @@ LOSS = 'loss'
 
 EARLY_STOP_ON = 'early_stop_on'
 STATE_DICT = 'state_dict'
+
+UHIS_POS_SEQ = 'u_pos_his_s'
+UHIS_POS = 'u_pos_his'
