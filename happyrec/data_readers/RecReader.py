@@ -49,8 +49,8 @@ class RecReader(DataReader):
         self.reader_logger.info("test sample_n = {}".format(self.test_data[EVAL_IIDS].shape))
         return test_iids
 
-    def group_train_pos_his(self, label_filter=lambda x: x > 0):
-        self.reader_logger.debug("group_train_pos_his...")
+    def group_user_train_pos_his(self, label_filter=lambda x: x > 0):
+        self.reader_logger.debug("group_user_train_pos_his...")
         uids, iids, labels = self.train_data[UID], self.train_data[IID], self.train_data[LABEL]
         index = label_filter(labels)
         uids, iids = uids[index], iids[index]
@@ -59,6 +59,17 @@ class RecReader(DataReader):
                         for uid in range(self.user_num)]
         self.user_data[TRAIN_POS_HIS] = np.array(user_history, dtype=object)
         return user_dict
+
+    def group_item_train_pos_his(self, label_filter=lambda x: x > 0):
+        self.reader_logger.debug("group_item_train_pos_his...")
+        uids, iids, labels = self.train_data[UID], self.train_data[IID], self.train_data[LABEL]
+        index = label_filter(labels)
+        uids, iids = uids[index], iids[index]
+        item_dict = group_user_history(iids, uids)
+        item_history = [np.array(item_dict[iid]) if iid in item_dict else np.array([], dtype=int)
+                        for iid in range(self.item_num)]
+        self.item_data[TRAIN_POS_HIS] = np.array(item_history, dtype=object)
+        return item_dict
 
     def prepare_user_features(self, include_uid: bool = False,
                               multihot_features: str = None, numeric_features: str = None):

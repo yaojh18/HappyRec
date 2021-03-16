@@ -54,7 +54,7 @@ class RecModel(Model):
         reader.read_user(filename=USER_FILE, formatters=formatters)
         reader.read_item(filename=ITEM_FILE, formatters=formatters)
         if self.train_sample_n > 0 or self.val_sample_n != 0 or self.test_sample_n != 0:
-            reader.group_train_pos_his(label_filter=lambda x: x > 0)
+            reader.group_user_train_pos_his(label_filter=lambda x: x > 0)
         if self.val_sample_n != 0:
             reader.read_val_iids(filename=VAL_IIDS_FILE, formatters=formatters, sample_n=self.val_sample_n)
         if self.test_sample_n != 0:
@@ -134,7 +134,7 @@ class RecModel(Model):
             loss = BPRRankLoss()(prediction, label, neg_thresh=0, loss_sum=self.loss_sum)
             # loss = SoftmaxRankLoss()(prediction, label, neg_thresh=0, loss_sum=self.loss_sum)
         else:
-            loss = torch.nn.MSELoss(reduction='sum' if self.loss_sum == 1 else 'mean')(prediction, label)
+            loss = torch.nn.MSELoss(reduction='sum' if self.loss_sum == 1 else 'mean')(prediction, label.float())
         return loss
 
     def training_step(self, batch, batch_idx, *args, **kwargs):
