@@ -313,7 +313,7 @@ class Model(pl.LightningModule):
         return
 
     def forward(self, batch, *args, **kwargs):
-        return {}
+        return batch
 
     def loss_func(self, out_dict, *args, **kwargs):
         return
@@ -323,7 +323,6 @@ class Model(pl.LightningModule):
 
     def validation_step(self, batch, *args, **kwargs):
         out_dict = self.forward(batch)
-        out_dict[LABEL] = batch[LABEL]
         if self.val_metrics is not None and len(self.val_metrics.metrics) > 0:
             self.val_metrics.update(out_dict)
         else:
@@ -332,7 +331,6 @@ class Model(pl.LightningModule):
 
     def test_step(self, batch, *args, **kwargs):
         out_dict = self.forward(batch)
-        out_dict[LABEL] = batch[LABEL]
         if self.test_metrics is not None and len(self.test_metrics.metrics) > 0:
             self.test_metrics.update(out_dict)
         else:

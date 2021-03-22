@@ -28,9 +28,12 @@ class RecDataset(Dataset):
     def sample_train_iids(self, sample_n: int):
         uids = self.data[UID] if UID in self.data else None
         if uids is not None:
-            tran_pos_his = {uid: self.reader.user_data[TRAIN_POS_HIS][uid] for uid in uids}
+            train_pos_his = {}
+            for uid in uids:
+                his_seq, train_idx = self.reader.user_data[HIS_POS_SEQ][uid], self.reader.user_data[HIS_POS_TRAIN][uid]
+                train_pos_his[uid] = his_seq[:train_idx]
             iids = sample_iids(sample_n=sample_n, uids=uids, item_num=self.reader.item_num,
-                               exclude_iids=tran_pos_his, replace=False, verbose=True)
+                               exclude_iids=train_pos_his, replace=False, verbose=True)
         else:
             iids = np.random.choice(self.reader.item_num, size=(len(self), sample_n), replace=False)
         self.buffer_train_iids = iids
@@ -56,8 +59,13 @@ class RecDataset(Dataset):
         iids = np.arange(self.reader.item_num)
         labels = np.zeros(len(iids), dtype=int)
         if UID in index_dict:
-            tran_pos_his = self.reader.user_data[TRAIN_POS_HIS][index_dict[UID][0]]
-            iids[tran_pos_his] = 0
+            uid = index_dict[UID][0]
+            pos_his = self.reader.user_data[HIS_POS_SEQ][uid]
+            if self.phase == TRAIN_PHASE:
+                pos_his = pos_his[:self.reader.user_data[HIS_POS_TRAIN][uid]]
+            elif self.phase == VAL_PHASE:
+                pos_his = pos_his[:self.reader.user_data[HIS_POS_VAL][uid]]
+            iids[pos_his] = 0
             if LABEL in index_dict:
                 iids[index_dict[IID]] = index_dict[IID]
             if EVAL_LABELS in self.data:

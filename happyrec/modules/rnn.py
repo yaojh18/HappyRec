@@ -49,7 +49,7 @@ class RNN(torch.nn.Module):
         sort_seq_vectors = seq_vectors.index_select(dim=0, index=sort_idx)  # b * l * v
 
         # Pack
-        seq_packed = torch.nn.utils.rnn.pack_padded_sequence(sort_seq_vectors, sort_seq_lengths, batch_first=True)
+        seq_packed = torch.nn.utils.rnn.pack_padded_sequence(sort_seq_vectors, sort_seq_lengths.cpu(), batch_first=True)
 
         # RNN
         sort_output, sort_hidden = self.rnn(seq_packed, self.initial_state(init, sort_idx))

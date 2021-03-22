@@ -25,5 +25,5 @@ class BiasedMF(RecModel):
         i_bias = self.item_bias(i_ids).squeeze(dim=-1)  # B * S
         bias = u_bias + i_bias + self.global_bias  # B * S
         prediction = bias + (cf_u_vectors * cf_i_vectors).sum(dim=-1)  # B * S
-        out_dict = {PREDICTION: prediction}
-        return out_dict
+        batch[PREDICTION] = prediction
+        return batch

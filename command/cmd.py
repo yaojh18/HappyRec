@@ -7,6 +7,9 @@
 
 
 [1e-3, 1e-4, 1e-5, 1e-6, 0.0]  # l2
+# [1e-3, 1e-4] # lr
+# 'python main.py --model_name Popular --val_metrics ndcg@10 --test_metrics ndcg@5.10.20.50.100,hit@10,recall@10.20,precision@10'
 # 'python main.py --model_name BiasedMF --val_metrics ndcg@10 --test_metrics ndcg@5.10.20.50.100,hit@10,recall@10.20,precision@10'
 # 'python main.py --model_name GRU4Rec --val_metrics ndcg@10 --test_metrics ndcg@5.10.20.50.100,hit@10,recall@10.20,precision@10'
 'python main.py --model_name GRU4Rec --val_metrics ndcg@10 --test_metrics ndcg@5.10.20.50.100,hit@10,recall@10.20,precision@10 --max_his 10'
+

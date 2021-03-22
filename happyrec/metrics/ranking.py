@@ -17,11 +17,14 @@ class RankMetric(pl.metrics.Metric):
     @staticmethod
     def sort_rank(prediction, label):
         assert prediction.shape == label.shape
-        prediction, indices = prediction.sort(dim=-1, descending=True)  # ? * n
+        # prediction, indices = prediction.sort(dim=-1, descending=True)  # ? * n
+        prediction, indices = prediction.sort(dim=-1)  # ? * n
+        prediction = prediction.flip(1)  # ? * n
+        indices = indices.flip(1)  # ? * n
         label = label.gather(dim=-1, index=indices)  # ? * n
         return prediction, label
 
-    def update(self, prediction, label, ranked: bool = True) -> None:
+    def update(self, prediction, label, ranked: bool = False) -> None:
         if not ranked:
             prediction, label = self.sort_rank(prediction, label)  # ? * n
         metrics = self.metric_at_k(prediction, label)
@@ -80,7 +83,7 @@ class Precision(RankMetric):
 class NDCG(RankMetric):
     def metric_at_k(self, prediction, label) -> dict:
         ideal_rank, _ = label.sort(dim=-1, descending=True)  # ? * n
-        discounts = torch.log2(torch.arange(max(self.topks)) + 2.0).to(device=prediction.device)  # K
+        discounts = torch.log2(torch.arange(max(self.topks)).to(device=prediction.device) + 2.0)  # K
         result = {}
         for topk in self.topks:
             discount = discounts[:topk]

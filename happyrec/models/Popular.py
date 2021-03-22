@@ -14,7 +14,7 @@ class Popular(RecModel):
 
     def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None):
         reader = super().read_data(dataset_dir=dataset_dir, reader=reader, formatters=formatters)
-        reader.group_item_train_pos_his()
+        reader.prepare_item_pos_his()
 
     def on_train_epoch_start(self) -> None:
         return
@@ -24,7 +24,7 @@ class Popular(RecModel):
         index_dict = super().dataset_get_item(dataset=dataset, index=index)
         reader = dataset.reader
         index_dict[PREDICTION] = np.array(
-            [len(reader.item_data[TRAIN_POS_HIS][iid]) for iid in index_dict[IID]])
+            [reader.item_data[HIS_POS_TRAIN][iid] for iid in index_dict[IID]])
         return index_dict
 
     def init_modules(self, *args, **kwargs) -> None:
@@ -40,4 +40,5 @@ class Popular(RecModel):
         out_dict = self.forward(batch)
         if self.train_metrics is not None:
             self.train_metrics.update(out_dict)
-        return {LOSS: torch.tensor(0)}
+        out_dict[LOSS] = torch.tensor(0)
+        return out_dict

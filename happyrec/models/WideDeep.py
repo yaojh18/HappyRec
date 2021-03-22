@@ -131,5 +131,5 @@ class WideDeep(RecModel):
             deep_vectors = layer(deep_vectors)  # (B*S) * 1
         deep_prediction = deep_vectors.squeeze(dim=-1).view_as(i_ids)  # B * S
         prediction = wide_prediction + deep_prediction  # B * S
-        out_dict = {PREDICTION: prediction}
-        return out_dict
+        batch[PREDICTION] = prediction
+        return batch

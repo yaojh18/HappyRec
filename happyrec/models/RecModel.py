@@ -54,7 +54,7 @@ class RecModel(Model):
         reader.read_user(filename=USER_FILE, formatters=formatters)
         reader.read_item(filename=ITEM_FILE, formatters=formatters)
         if self.train_sample_n > 0 or self.val_sample_n != 0 or self.test_sample_n != 0:
-            reader.group_user_train_pos_his(label_filter=lambda x: x > 0)
+            reader.prepare_user_pos_his(label_filter=lambda x: x > 0)
         if self.val_sample_n != 0:
             reader.read_val_iids(filename=VAL_IIDS_FILE, formatters=formatters, sample_n=self.val_sample_n)
         if self.test_sample_n != 0:
@@ -125,8 +125,8 @@ class RecModel(Model):
         cf_u_vectors = self.uid_embeddings(u_ids)  # B * 1 * v
         cf_i_vectors = self.iid_embeddings(i_ids)  # B * S * v
         prediction = (cf_u_vectors * cf_i_vectors).sum(dim=-1)  # B * S
-        out_dict = {PREDICTION: prediction}
-        return out_dict
+        batch[PREDICTION] = prediction
+        return batch
 
     def loss_func(self, out_dict, *args, **kwargs):
         prediction, label = out_dict[PREDICTION], out_dict[LABEL]
@@ -139,7 +139,6 @@ class RecModel(Model):
 
     def training_step(self, batch, batch_idx, *args, **kwargs):
         out_dict = self.forward(batch)
-        out_dict[LABEL] = batch[LABEL].float()  # B * S
         loss = self.loss_func(out_dict)
         if self.train_sample_n > 0:
             self.log('train_bprrank_loss', loss, on_step=True)
@@ -147,4 +146,5 @@ class RecModel(Model):
             self.log('train_mse_loss', loss, on_step=True)
         if self.train_metrics is not None:
             self.train_metrics.update(out_dict)
-        return {LOSS: loss}
+        out_dict[LOSS] = loss
+        return out_dict

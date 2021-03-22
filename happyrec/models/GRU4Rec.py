@@ -34,22 +34,23 @@ class GRU4Rec(RecModel):
 
     def read_data(self, dataset_dir: str = None, reader=None, formatters: dict = None, *args, **kwargs):
         reader = super().read_data(dataset_dir=dataset_dir, reader=reader, formatters=formatters)
-        reader.prepare_user_pos_his(max_his=self.max_his)
+        if self.max_his != 0:
+            reader.prepare_user_pos_his()
         return reader
 
     def dataset_get_item(self, dataset, index: int) -> dict:
         if dataset.buffer_ds > 0: return dataset.index_buffer[index]
         index_dict = super().dataset_get_item(dataset=dataset, index=index)
-        lo, hi = dataset.data[UHIS_POS][index]
-        uid = index_dict[UID][0]
-        index_dict[UHIS_POS_SEQ] = dataset.reader.user_data[UHIS_POS_SEQ][uid][lo:hi]
+        hi = dataset.data[HIS_POS_IDX][index]
+        lo = 0 if self.max_his < 0 else max(0, hi - self.max_his)
+        index_dict[HIS_POS_SEQ] = dataset.reader.user_data[HIS_POS_SEQ][index_dict[UID][0]][lo:hi]
         return index_dict
 
     def dataset_collate_batch(self, dataset, batch: list) -> dict:
-        uhis = [b.pop(UHIS_POS_SEQ) for b in batch]
+        uhis = [b.pop(HIS_POS_SEQ) for b in batch]
         uhis = dataset.collate_padding(uhis)
         result_dict = super().dataset_collate_batch(dataset, batch)
-        result_dict[UHIS_POS_SEQ] = uhis
+        result_dict[HIS_POS_SEQ] = uhis
         return result_dict
 
     def init_modules(self, *args, **kwargs) -> None:
@@ -61,11 +62,11 @@ class GRU4Rec(RecModel):
 
     def forward(self, batch, *args, **kwargs):
         i_ids = batch[IID]  # B * S
-        u_his = batch[UHIS_POS_SEQ]  # B * l
+        u_his = batch[HIS_POS_SEQ]  # B * l
         i_vectors = self.iid_embeddings(i_ids)  # B * S * v
         u_his_vectors = self.iid_embeddings(u_his)  # B * l * v
         output, hidden = self.gru(seq_vectors=u_his_vectors, valid=u_his.gt(0).byte())
         u_vectors = hidden[0].unsqueeze(dim=1)  # B * 1 * v
         prediction = (u_vectors * i_vectors).sum(dim=-1)  # B * S
-        out_dict = {PREDICTION: prediction}
-        return out_dict
+        batch[PREDICTION] = prediction
+        return batch

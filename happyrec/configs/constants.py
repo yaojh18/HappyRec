@@ -24,12 +24,13 @@ TRAIN_PHASE = 0
 VAL_PHASE = 1
 TEST_PHASE = 2
 
-TRAIN_POS_HIS = 'train_pos_his'
 PREDICTION = 'prediction'
 LOSS = 'loss'
 
 EARLY_STOP_ON = 'early_stop_on'
 STATE_DICT = 'state_dict'
 
-UHIS_POS_SEQ = 'u_pos_his_s'
-UHIS_POS = 'u_pos_his'
+HIS_POS_SEQ = 'pos_his_seq'
+HIS_POS_TRAIN = 'pos_his_t'
+HIS_POS_VAL = 'pos_his_tv'
+HIS_POS_IDX = 'pos_his_idx'

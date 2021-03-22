@@ -1,6 +1,7 @@
 # coding=utf-8
 
 import torch
+import numpy as np
 import pytorch_lightning as pl
 from collections import defaultdict
 
@@ -61,6 +62,8 @@ class RankMetricsList(MetricsList):
 
     def update(self, output: dict, ranked=False) -> None:
         prediction, label = output[PREDICTION], output[LABEL]
+        if IID in output:
+            prediction = prediction.masked_fill(output[IID].le(0), -np.inf)
         if self.require_rank and not ranked:
             prediction, label = RankMetric.sort_rank(prediction, label)
         for key in self.metrics:

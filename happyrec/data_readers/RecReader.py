@@ -34,7 +34,9 @@ class RecReader(DataReader):
         df = read_df(dirname=self.dataset_dir, filename=filename)
         val_iids = df2dict(df, formatters=formatters)
         for c in val_iids:
-            c_data = val_iids[c] if c not in self.val_data else np.concatenate([self.val_data[c], c_data], axis=1)
+            c_data = val_iids[c]
+            if c in self.val_data:
+                c_data = np.concatenate([self.val_data[c], c_data], axis=1)
             self.val_data[c] = filter_seqs(c_data, max_len=sample_n, padding=0)
         self.reader_logger.info("validation sample_n = {}".format(self.val_data[EVAL_IIDS].shape))
         return val_iids
@@ -44,32 +46,12 @@ class RecReader(DataReader):
         df = read_df(dirname=self.dataset_dir, filename=filename)
         test_iids = df2dict(df, formatters=formatters)
         for c in test_iids:
-            c_data = test_iids[c] if c not in self.test_data else np.concatenate([self.test_data[c], c_data], axis=1)
+            c_data = test_iids[c]
+            if c in self.test_data:
+                c_data = np.concatenate([self.test_data[c], c_data], axis=1)
             self.test_data[c] = filter_seqs(c_data, max_len=sample_n, padding=0)
         self.reader_logger.info("test sample_n = {}".format(self.test_data[EVAL_IIDS].shape))
         return test_iids
-
-    def group_user_train_pos_his(self, label_filter=lambda x: x > 0):
-        self.reader_logger.debug("group_user_train_pos_his...")
-        uids, iids, labels = self.train_data[UID], self.train_data[IID], self.train_data[LABEL]
-        index = label_filter(labels)
-        uids, iids = uids[index], iids[index]
-        user_dict = group_user_history(uids, iids)
-        user_history = [np.array(user_dict[uid]) if uid in user_dict else np.array([], dtype=int)
-                        for uid in range(self.user_num)]
-        self.user_data[TRAIN_POS_HIS] = np.array(user_history, dtype=object)
-        return user_dict
-
-    def group_item_train_pos_his(self, label_filter=lambda x: x > 0):
-        self.reader_logger.debug("group_item_train_pos_his...")
-        uids, iids, labels = self.train_data[UID], self.train_data[IID], self.train_data[LABEL]
-        index = label_filter(labels)
-        uids, iids = uids[index], iids[index]
-        item_dict = group_user_history(iids, uids)
-        item_history = [np.array(item_dict[iid]) if iid in item_dict else np.array([], dtype=int)
-                        for iid in range(self.item_num)]
-        self.item_data[TRAIN_POS_HIS] = np.array(item_history, dtype=object)
-        return item_dict
 
     def prepare_user_features(self, include_uid: bool = False,
                               multihot_features: str = None, numeric_features: str = None):
@@ -150,22 +132,48 @@ class RecReader(DataReader):
             d[TIME] = times[i]
         return {**mh_f_dict, **nm_f_dict}
 
-    def prepare_user_pos_his(self, max_his=-1, label_filter=lambda x: x > 0):
+    def prepare_user_pos_his(self, label_filter=lambda x: x > 0):
+        if HIS_POS_SEQ in self.user_data: return None
         user_dict = {}
-        data_dicts = [d for d in [self.train_data, self.val_data, self.test_data] if d is not None]
-        for data in data_dicts:
+        data_dicts = [(self.train_data, HIS_POS_TRAIN), (self.val_data, HIS_POS_VAL), (self.test_data, HIS_POS_SEQ)]
+        for data, col_name in data_dicts:
             uids, iids, labels = data[UID], data[IID], data[LABEL]
-            lohilist = []
+            hi_list = []
             for uid, iid, label in zip(uids, iids, labels):
                 if uid not in user_dict:
                     user_dict[uid] = []
-                hi = len(user_dict[uid])
-                lo = 0 if max_his < 0 else max(0, len(user_dict[uid]) - max_his)
-                lohilist.append([lo, hi])
+                hi_list.append(len(user_dict[uid]))
                 if label_filter(label):
                     user_dict[uid].append(iid)
-            data[UHIS_POS] = np.array(lohilist)
-        user_history = [np.array(user_dict[uid]) if uid in user_dict else np.array([], dtype=int)
-                        for uid in range(self.user_num)]
-        self.user_data[UHIS_POS_SEQ] = np.array(user_history, dtype=object)
+            data[HIS_POS_IDX] = np.array(hi_list)
+            if col_name != HIS_POS_SEQ:
+                user_history = [len(user_dict[uid]) if uid in user_dict else 0 for uid in range(self.user_num)]
+                self.user_data[col_name] = np.array(user_history)
+            else:
+                user_history = [np.array(user_dict[uid]) if uid in user_dict else np.array([], dtype=int)
+                                for uid in range(self.user_num)]
+                self.user_data[col_name] = np.array(user_history, dtype=object)
         return user_dict
+
+    def prepare_item_pos_his(self, label_filter=lambda x: x > 0):
+        if HIS_POS_SEQ in self.item_data: return None
+        item_dict = {}
+        data_dicts = [(self.train_data, HIS_POS_TRAIN), (self.val_data, HIS_POS_VAL), (self.test_data, HIS_POS_SEQ)]
+        for data, col_name in data_dicts:
+            uids, iids, labels = data[UID], data[IID], data[LABEL]
+            hi_list = []
+            for uid, iid, label in zip(uids, iids, labels):
+                if iid not in item_dict:
+                    item_dict[iid] = []
+                hi_list.append(len(item_dict[iid]))
+                if label_filter(label):
+                    item_dict[iid].append(uid)
+            data[HIS_POS_IDX] = np.array(hi_list)
+            if col_name != HIS_POS_SEQ:
+                item_history = [len(item_dict[iid]) if iid in item_dict else 0 for iid in range(self.item_num)]
+                self.item_data[col_name] = np.array(item_history)
+            else:
+                item_history = [np.array(item_dict[iid]) if iid in item_dict else np.array([], dtype=int)
+                                for iid in range(self.item_num)]
+                self.item_data[col_name] = np.array(item_history, dtype=object)
+        return item_dict
