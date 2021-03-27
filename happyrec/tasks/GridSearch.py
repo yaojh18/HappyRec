@@ -195,7 +195,7 @@ class GridSearch(object):
             try:
                 if type(cuda_dict) is str:
                     cmd = GridSearch.cmd_update_args(cmd, [('cuda', cuda_dict)])
-                else:
+                elif NUM_CUDA > 0:
                     cuda = GridSearch.find_cuda(cuda_dict)
                     if cuda >= 0:
                         cmd = GridSearch.cmd_update_args(cmd, [('cuda', cuda)])
