@@ -237,14 +237,18 @@ class Model(pl.LightningModule):
             optimizer = torch.optim.SGD(optimize_dict, lr=self.lr)
         return optimizer
 
-    def init_weights(self, m) -> None:
-        if type(m) == torch.nn.Linear:
-            torch.nn.init.normal_(m.weight, mean=0.0, std=0.01)
-            if m.bias is not None:
-                torch.nn.init.normal_(m.bias, mean=0.0, std=0.01)
-        elif type(m) == torch.nn.Embedding:
-            torch.nn.init.normal_(m.weight, mean=0.0, std=0.01)
-        return
+    def init_weights(self) -> None:
+        for n, p in self.named_parameters():
+            if p.requires_grad:
+                torch.nn.init.normal_(p, mean=0, std=0.01)
+
+    def count_variables(self):
+        """
+        模型所有参数数目
+        :return:
+        """
+        total_parameters = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        return total_parameters
 
     def init_logger(self, save_dir=MODEL_DIR, name=None, version=None):
         if name is None:
@@ -311,6 +315,7 @@ class Model(pl.LightningModule):
         return trainer.test(model=self, test_dataloaders=test_data)
 
     def init_modules(self, *args, **kwargs) -> None:
+        self.init_weights()
         return
 
     def forward(self, batch, *args, **kwargs):

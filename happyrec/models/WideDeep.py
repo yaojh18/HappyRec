@@ -103,7 +103,7 @@ class WideDeep(RecModel):
     def init_modules(self, *args, **kwargs) -> None:
         self.feature_embeddings = torch.nn.Embedding(self.multihot_f_dim, self.vec_size)
         self.multihot_bias = torch.nn.Embedding(self.multihot_f_dim, 1)
-        self.numeric_bias = torch.nn.Parameter(torch.tensor([0.1] * self.numeric_f_num), requires_grad=True)
+        self.numeric_bias = torch.nn.Parameter(torch.tensor([0.01] * self.numeric_f_num), requires_grad=True)
         pre_size = self.multihot_f_num * self.vec_size + self.numeric_f_num
         self.deep_layers = torch.nn.ModuleList()
         for size in self.layers:
@@ -113,7 +113,7 @@ class WideDeep(RecModel):
             self.deep_layers.append(torch.nn.Dropout(self.dropout))
             pre_size = size
         self.deep_layers.append(torch.nn.Linear(pre_size, 1))
-        self.apply(self.init_weights)
+        self.init_weights()
         return
 
     def forward(self, batch, *args, **kwargs):
@@ -124,16 +124,14 @@ class WideDeep(RecModel):
         deep_vectors, wide_numeric = [], []
         if USER_MH in batch:
             user_mh_vectors = self.feature_embeddings(batch[USER_MH])  # B * 1 * uf * v
-            user_mh_vectors = user_mh_vectors.flatten(start_dim=-2).expand(-1, sample_n, -1)  # B * S * (uf*v)
-            deep_vectors.append(user_mh_vectors)
+            deep_vectors.append(user_mh_vectors.flatten(start_dim=-2).expand(-1, sample_n, -1))  # B * S * (uf*v)
             user_mh_bias = self.multihot_bias(batch[USER_MH]).squeeze(dim=-1)  # B * 1 * uf
-            wide_prediction += user_mh_bias.sum(dim=-1)  # B * S
+            wide_prediction = wide_prediction + user_mh_bias.sum(dim=-1)  # B * S
         if USER_NU in batch:
             wide_numeric.append(batch[USER_NU].expand(-1, sample_n, -1))  # B * S * unm
         if ITEM_MH in batch:
             item_mh_vectors = self.feature_embeddings(batch[ITEM_MH])  # B * S * if * v
-            item_mh_vectors = item_mh_vectors.flatten(start_dim=-2)  # B * S * (if*v)
-            deep_vectors.append(item_mh_vectors)
+            deep_vectors.append(item_mh_vectors.flatten(start_dim=-2))  # B * S * (if*v)
             item_mh_bias = self.multihot_bias(batch[ITEM_MH]).squeeze(dim=-1)  # B * S * if
             wide_prediction = wide_prediction + item_mh_bias.sum(dim=-1)  # B * S
         if ITEM_NU in batch:
@@ -144,18 +142,18 @@ class WideDeep(RecModel):
                 unsqueeze(dim=1).expand(-1, sample_n, -1)  # B * S * (cf*v)
             deep_vectors.append(ctxt_mh_vectors)
             ctxt_mh_bias = self.multihot_bias(batch[CTXT_MH]).squeeze(dim=-1)  # B * cf
-            wide_prediction += ctxt_mh_bias.sum(dim=-1, keepdim=True)  # B * S
+            wide_prediction = wide_prediction + ctxt_mh_bias.sum(dim=-1, keepdim=True)  # B * S
         if CTXT_NU in batch:
             wide_numeric.append(batch[CTXT_NU].unsqueeze(dim=1).expand(-1, sample_n, -1))  # B * S * cnm
         if self.numeric_f_num > 0:
             wide_numeric = torch.cat(wide_numeric, dim=-1)  # B * S * nm
             deep_vectors.append(wide_numeric)
             wide_numeric = wide_numeric * self.numeric_bias  # B * S * nm
-            wide_prediction += wide_numeric.sum(dim=-1)  # B * S
-        deep_vectors = torch.cat(deep_vectors, dim=-1).flatten(start_dim=0, end_dim=1)  # (B*S) * fv
+            wide_prediction = wide_prediction + wide_numeric.sum(dim=-1)  # B * S
+        deep_vectors = torch.cat(deep_vectors, dim=-1)  # B * S * fv
         for layer in self.deep_layers:
-            deep_vectors = layer(deep_vectors)  # (B*S) * 1
-        deep_prediction = deep_vectors.squeeze(dim=-1).view_as(i_ids)  # B * S
+            deep_vectors = layer(deep_vectors)  # B * S * 1
+        deep_prediction = deep_vectors.squeeze(dim=-1)  # B * S
         prediction = wide_prediction + deep_prediction  # B * S
         batch[PREDICTION] = prediction
         return batch

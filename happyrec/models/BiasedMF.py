@@ -27,7 +27,7 @@ class BiasedMF(RecModel):
         self.user_bias = torch.nn.Embedding(self.user_num, 1)
         self.item_bias = torch.nn.Embedding(self.item_num, 1)
         self.global_bias = torch.nn.Parameter(torch.tensor(0.1), requires_grad=True)
-        self.apply(self.init_weights)
+        self.init_weights()
         return
 
     def forward(self, batch, *args, **kwargs):

@@ -69,7 +69,7 @@ class GRU4Rec(RecModel):
         self.iid_embeddings = torch.nn.Embedding(self.item_num, self.vec_size)
         self.gru = GRU(vec_size=self.vec_size, hidden_size=self.vec_size,
                        num_layers=self.num_layers, dropout=self.dropout)
-        self.apply(self.init_weights)
+        self.init_weights()
         return
 
     def forward(self, batch, *args, **kwargs):

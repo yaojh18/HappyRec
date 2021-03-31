@@ -55,7 +55,7 @@ class NCF(RecModel):
         self.output_layer = torch.nn.Sequential(
             torch.nn.Linear(pre_size, 1),
         )
-        self.apply(self.init_weights)
+        self.init_weights()
         return
 
     def forward(self, batch, *args, **kwargs):
