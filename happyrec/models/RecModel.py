@@ -12,6 +12,20 @@ from ..modules.loss import BPRRankLoss, SoftmaxRankLoss
 from ..metrics.MetricList import MetricsList
 from ..metrics.RankMetricList import RankMetricsList
 
+'''
+@inproceedings{DBLP:conf/uai/RendleFGS09,
+  author    = {Steffen Rendle and
+               Christoph Freudenthaler and
+               Zeno Gantner and
+               Lars Schmidt{-}Thieme},
+  title     = {{BPR:} Bayesian Personalized Ranking from Implicit Feedback},
+  booktitle = {{UAI}},
+  pages     = {452--461},
+  publisher = {{AUAI} Press},
+  year      = {2009}
+}
+'''
+
 
 class RecModel(Model):
     default_reader = 'RecReader'

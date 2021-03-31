@@ -9,6 +9,18 @@ from ..configs.settings import *
 from ..models.RecModel import RecModel
 from ..modules.rnn import GRU
 
+'''
+@inproceedings{DBLP:journals/corr/HidasiKBT15,
+  author    = {Bal{\'{a}}zs Hidasi and
+               Alexandros Karatzoglou and
+               Linas Baltrunas and
+               Domonkos Tikk},
+  title     = {Session-based Recommendations with Recurrent Neural Networks},
+  booktitle = {{ICLR} (Poster)},
+  year      = {2016}
+}
+'''
+
 
 class GRU4Rec(RecModel):
     @staticmethod

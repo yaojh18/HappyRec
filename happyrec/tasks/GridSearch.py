@@ -205,6 +205,7 @@ class GridSearch(object):
                 result = subprocess.check_output(cmd, shell=True, bufsize=-1)
                 break
             except subprocess.CalledProcessError as e:
+                DEFAULT_LOGGER.error('WAIT FOR RETRY: ' + cmd)
                 result = e.output
                 try_cnt += 1
                 if try_cnt >= try_max:

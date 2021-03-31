@@ -58,7 +58,7 @@ class Model(pl.LightningModule):
                             help='Batch size during testing.')
         parser.add_argument('--num_workers', type=int, default=4,
                             help='Number of processors when get batches in DataLoader')
-        parser.add_argument('--es_patience', type=int, default=20,
+        parser.add_argument('--es_patience', type=int, default=50,
                             help='#epochs with no improvement after which training will be stopped (early stop).')
         parser.add_argument('--train_metrics', type=str, default='',
                             help='Calculate metrics on training')
@@ -177,6 +177,7 @@ class Model(pl.LightningModule):
         result_dict = {}
         for c in batch[0]:
             result_dict[c] = dataset.collate_stack([b[c] for b in batch])
+        result_dict[PHASE] = dataset.phase
         return result_dict
 
     def dataset_get_dataloader(self, dataset: Dataset) -> torch.utils.data.DataLoader:

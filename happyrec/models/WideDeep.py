@@ -8,6 +8,32 @@ from ..configs.constants import *
 from ..configs.settings import *
 from ..models.RecModel import RecModel
 
+'''
+@inproceedings{DBLP:conf/recsys/Cheng0HSCAACCIA16,
+  author    = {Heng{-}Tze Cheng and
+               Levent Koc and
+               Jeremiah Harmsen and
+               Tal Shaked and
+               Tushar Chandra and
+               Hrishi Aradhye and
+               Glen Anderson and
+               Greg Corrado and
+               Wei Chai and
+               Mustafa Ispir and
+               Rohan Anil and
+               Zakaria Haque and
+               Lichan Hong and
+               Vihan Jain and
+               Xiaobing Liu and
+               Hemal Shah},
+  title     = {Wide {\&} Deep Learning for Recommender Systems},
+  booktitle = {DLRS@RecSys},
+  pages     = {7--10},
+  publisher = {{ACM}},
+  year      = {2016}
+}
+'''
+
 USER_MH = 'user_mh'
 USER_NU = 'user_nm'
 ITEM_MH = 'item_mh'
