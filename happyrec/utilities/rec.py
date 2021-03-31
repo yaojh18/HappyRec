@@ -61,3 +61,16 @@ def sample_iids(sample_n, uids, item_num, exclude_iids=None, replace=False, verb
                 tmp_set.add(iid)
         result.append(uid_result)
     return np.array(result)
+
+
+def cold_sampling(vectors, cs_ratio):
+    """
+    :param vectors: ? * v
+    :param cs_ratio: 0 < cs_ratio < 1
+    :return:
+    """
+    cs_p = torch.empty(vectors.size()[:-1]).fill_(cs_ratio).unsqueeze(dim=-1)  # ? * 1
+    drop_pos = torch.bernoulli(cs_p).to(vectors.device)  # ? * 1
+    random_vectors = torch.empty(vectors.size()).normal_(0, 0.01).to(vectors.device)  # ? * v
+    cs_vectors = random_vectors * drop_pos + vectors * (-drop_pos + 1)  # ? * v
+    return cs_vectors

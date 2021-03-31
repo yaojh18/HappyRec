@@ -78,7 +78,7 @@ class GRU4Rec(RecModel):
         i_vectors = self.iid_embeddings(i_ids)  # B * S * v
         u_his_vectors = self.iid_embeddings(u_his)  # B * l * v
         output, hidden = self.gru(seq_vectors=u_his_vectors, valid=u_his.gt(0).byte())
-        u_vectors = hidden[0].unsqueeze(dim=1)  # B * 1 * v
+        u_vectors = hidden[-1].unsqueeze(dim=1)  # B * 1 * v
         prediction = (u_vectors * i_vectors).sum(dim=-1)  # B * S
         batch[PREDICTION] = prediction
         return batch
