@@ -63,7 +63,7 @@ class NCF(RecModel):
         i_ids = batch[IID]  # B * S
         mlp_u_vectors = self.mlp_uid_embeddings(u_ids)  # B * 1 * v
         mlp_i_vectors = self.mlp_iid_embeddings(i_ids)  # B * S * v
-        mlp_vectors = torch.cat((mlp_u_vectors.repeat(1, i_ids.size(1), 1), mlp_i_vectors), dim=-1)  # B * S * 2v
+        mlp_vectors = torch.cat((mlp_u_vectors.expand(1, i_ids.size(1), 1), mlp_i_vectors), dim=-1)  # B * S * 2v
         for layer in self.mlp_layers:
             mlp_vectors = layer(mlp_vectors)  # B * S * x
         prediction = self.output_layer(mlp_vectors).squeeze()  # B * S

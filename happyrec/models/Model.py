@@ -54,7 +54,7 @@ class Model(pl.LightningModule):
                             help='Whether buffer dataset items or not.')
         parser.add_argument('--batch_size', type=int, default=128,
                             help='Batch size during training.')
-        parser.add_argument('--eval_batch_size', type=int, default=128,
+        parser.add_argument('--eval_batch_size', type=int, default=16,
                             help='Batch size during testing.')
         parser.add_argument('--num_workers', type=int, default=4,
                             help='Number of processors when get batches in DataLoader')

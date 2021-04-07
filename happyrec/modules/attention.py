@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 
-class QKAttention(torch.nn.Module):
+class SingleQueryAtt(torch.nn.Module):
     def forward(self, q, k, v, valid=None, scale=None):
         """
         :param query: ? * l * a
@@ -19,14 +19,14 @@ class QKAttention(torch.nn.Module):
             att_v = att_v * scale  # ? * l
         att_v = att_v - att_v.max(dim=-1, keepdim=True)[0]  # ? * l
         if valid is not None:
-            att_v = att_v.masked_fill((1 - valid).byte(), -np.inf)  # ? * l
+            att_v = att_v.masked_fill(valid.le(0), -np.inf)  # ? * l
         att_w = att_v.softmax(dim=-1)  # ? * l
         att_w = att_w.masked_fill(torch.isnan(att_w), 0)  # ? * l
         result = (att_w.unsqueeze(dim=-1) * v).sum(dim=-2)  # ? * v
         return result, att_w
 
 
-class QKVAttention(torch.nn.Module):
+class MultiQueryAtt(torch.nn.Module):
     def forward(self, q, k, v, valid=None, scale=None):
         """
         根据q和k的两两匹配程度，把k对应的v加权平均
@@ -42,16 +42,16 @@ class QKVAttention(torch.nn.Module):
             att_v = att_v * scale  # ? * L_q * L_k
         att_v = att_v - att_v.max(dim=-1, keepdim=True)[0]  # ? * L_q * L_k
         if valid is not None:
-            att_v = att_v.masked_fill((1 - valid).byte(), -np.inf)  # ? * L_q * L_k
+            att_v = att_v.masked_fill(valid.le(0), -np.inf)  # ? * L_q * L_k
         att_w = att_v.softmax(dim=-1)  # ? * L_q * L_k
         att_w = att_w.masked_fill(torch.isnan(att_w), 0)  # ? * L_q * L_k
         result = torch.matmul(att_w, v)  # ? * L_q * V
         return result, att_w
 
 
-class SelfAttention(torch.nn.Module):
+class SelfAtt(torch.nn.Module):
     def __init__(self, input_size, query_size=-1, key_size=-1, value_size=-1):
-        super(SelfAttention, self).__init__()
+        super(SelfAtt, self).__init__()
 
         self.input_size = input_size
         self.query_size = query_size if query_size != 0 else self.input_size
@@ -94,14 +94,14 @@ class SelfAttention(torch.nn.Module):
         att_query = transfer_if_valid_layer(self.query_layer)  # ? * L * a
         att_key = transfer_if_valid_layer(self.key_layer)  # ? * L * a
         att_value = transfer_if_valid_layer(self.value_layer)  # ? * L * v
-        return QKVAttention()(q=att_query, k=att_key, v=att_value, scale=scale, valid=valid)
+        return MultiQueryAtt()(q=att_query, k=att_key, v=att_value, scale=scale, valid=valid)
 
 
-class MultiHeadSelfAttention(SelfAttention):
+class MultiHeadSelfAtt(SelfAtt):
     def __init__(self, input_size, query_size=-1, key_size=-1, value_size=-1, head_num=1):
         self.head_num = head_num
-        SelfAttention.__init__(self, input_size=input_size, query_size=query_size, key_size=key_size,
-                               value_size=value_size)
+        SelfAtt.__init__(self, input_size=input_size, query_size=query_size, key_size=key_size,
+                         value_size=value_size)
 
     def init_modules(self):
         if self.query_size > 0:
@@ -135,4 +135,4 @@ class MultiHeadSelfAttention(SelfAttention):
         att_key = transfer_if_valid_layer(self.key_layer, self.att_size)  # ? * h * L * a
         att_value = transfer_if_valid_layer(
             self.value_layer, self.value_size if self.value_size > 0 else self.input_size)  # ? * h * L * v
-        return QKVAttention()(q=att_query, k=att_key, v=att_value, scale=scale, valid=valid)  # ? * h * L * v
+        return MultiQueryAtt()(q=att_query, k=att_key, v=att_value, scale=scale, valid=valid)  # ? * h * L * v

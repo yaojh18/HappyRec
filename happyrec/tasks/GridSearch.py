@@ -26,6 +26,8 @@ from ..utilities.logging import DEFAULT_LOGGER, format_log_metrics_dict
 # from signal import signal, SIGPIPE, SIG_DFL, SIG_IGN
 # # # ignore 'BrokenPipeError: [Errno 32] Broken pipe'
 # signal(SIGPIPE, SIG_IGN)
+# DEFAULT_LOGGER.setLevel(logging.DEBUG)
+
 
 class GridSearch(object):
     lock = Lock()
@@ -161,7 +163,8 @@ class GridSearch(object):
                 cuda_dict[i] = -1
         else:
             cuda_devices = [i for i in cuda_devices if 0 <= i < num_cuda]
-        try_cnt, select = 0, -1
+        DEFAULT_LOGGER.debug('cuda devices = {}'.format(cuda_devices))
+        try_cnt, select, max_mem = 0, -1, 0
         if len(cuda_devices) > 0:
             while try_max != try_cnt:
                 max_mem, max_cuda = -1, -1
@@ -172,6 +175,7 @@ class GridSearch(object):
                     handle = py3nvml.nvmlDeviceGetHandleByIndex(cuda)
                     info = py3nvml.nvmlDeviceGetMemoryInfo(handle)
                     free_mem = (info.total - info.used) / (1024 * 1024)
+                    DEFAULT_LOGGER.debug('cuda {} = {}MB'.format(cuda, free_mem))
                     if free_mem > max_mem:
                         max_mem, max_cuda = free_mem, cuda
                 if max_mem >= cuda_dict['cuda_mem']:
@@ -181,7 +185,7 @@ class GridSearch(object):
                 try_cnt += 1
                 time.sleep(cuda_dict['cuda_wait'])
             GridSearch.log_lock.acquire()
-            DEFAULT_LOGGER.debug('select cuda = {}'.format(select))
+            DEFAULT_LOGGER.info('select cuda = {}({}MB)'.format(select, max_mem))
             GridSearch.log_lock.release()
         py3nvml.nvmlShutdown()
         GridSearch.cuda_lock.release()

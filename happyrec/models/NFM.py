@@ -1,7 +1,9 @@
-from ..models.WideDeep import *
-from ..configs.constants import *
+# coding=utf-8
 import torch
 from argparse import ArgumentParser
+
+from ..models.WideDeep import *
+from ..configs.constants import *
 
 '''
 @inproceedings{DBLP:conf/sigir/0001C17,
