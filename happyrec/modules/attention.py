@@ -120,7 +120,7 @@ class MultiHeadSelfAtt(SelfAtt):
     def forward(self, x, valid=None, scale=None, act_v=None):
         head_x = torch.cat([x] * self.head_num, dim=-1)  # ? * L * (V*h)
         if valid is not None:
-            valid = torch.cat([valid.unsqueeze(dim=-3)] * self.head_num, dim=-3)
+            valid = torch.cat([valid.unsqueeze(dim=-3)] * self.head_num, dim=-3)  # ? * h * L * L
 
         def transfer_if_valid_layer(layer, head_size):
             result = head_x

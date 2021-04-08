@@ -101,9 +101,10 @@ class WideDeep(RecModel):
         return index_dict
 
     def init_modules(self, *args, **kwargs) -> None:
-        self.feature_embeddings = torch.nn.Embedding(self.multihot_f_dim, self.vec_size)
+        self.multihot_embeddings = torch.nn.Embedding(self.multihot_f_dim, self.vec_size)
         self.multihot_bias = torch.nn.Embedding(self.multihot_f_dim, 1)
         self.numeric_bias = torch.nn.Parameter(torch.tensor([0.01] * self.numeric_f_num), requires_grad=True)
+        self.overall_bias = torch.nn.Parameter(torch.tensor([0.01]), requires_grad=True)
         pre_size = self.multihot_f_num * self.vec_size + self.numeric_f_num
         self.deep_layers = torch.nn.ModuleList()
         for size in self.layers:
@@ -116,41 +117,33 @@ class WideDeep(RecModel):
         self.init_weights()
         return
 
-    def forward(self, batch, *args, **kwargs):
+    def concat_features(self, batch):
         i_ids = batch[IID]  # B * S
         sample_n = i_ids.size(-1)  # =S
-
-        wide_prediction = 0  # B * S
-        deep_vectors, wide_numeric = [], []
+        mh_features, nu_features = [], []
         if USER_MH in batch:
-            user_mh_vectors = self.feature_embeddings(batch[USER_MH])  # B * 1 * uf * v
-            deep_vectors.append(user_mh_vectors.flatten(start_dim=-2).expand(-1, sample_n, -1))  # B * S * (uf*v)
-            user_mh_bias = self.multihot_bias(batch[USER_MH]).squeeze(dim=-1)  # B * 1 * uf
-            wide_prediction = wide_prediction + user_mh_bias.sum(dim=-1)  # B * S
+            mh_features.append(batch[USER_MH].expand(-1, sample_n, -1))  # B * S * uf
         if USER_NU in batch:
-            wide_numeric.append(batch[USER_NU].expand(-1, sample_n, -1))  # B * S * unm
+            nu_features.append(batch[USER_NU].expand(-1, sample_n, -1))  # B * S * unu
         if ITEM_MH in batch:
-            item_mh_vectors = self.feature_embeddings(batch[ITEM_MH])  # B * S * if * v
-            deep_vectors.append(item_mh_vectors.flatten(start_dim=-2))  # B * S * (if*v)
-            item_mh_bias = self.multihot_bias(batch[ITEM_MH]).squeeze(dim=-1)  # B * S * if
-            wide_prediction = wide_prediction + item_mh_bias.sum(dim=-1)  # B * S
+            mh_features.append(batch[ITEM_MH])  # B * S * if
         if ITEM_NU in batch:
-            wide_numeric.append(batch[ITEM_NU])  # B * S * inm
+            nu_features.append(batch[ITEM_NU])  # B * S * inu
         if CTXT_MH in batch:
-            ctxt_mh_vectors = self.feature_embeddings(batch[CTXT_MH])  # B * cf * v
-            ctxt_mh_vectors = ctxt_mh_vectors.flatten(start_dim=-2). \
-                unsqueeze(dim=1).expand(-1, sample_n, -1)  # B * S * (cf*v)
-            deep_vectors.append(ctxt_mh_vectors)
-            ctxt_mh_bias = self.multihot_bias(batch[CTXT_MH]).squeeze(dim=-1)  # B * cf
-            wide_prediction = wide_prediction + ctxt_mh_bias.sum(dim=-1, keepdim=True)  # B * S
+            mh_features.append(batch[CTXT_MH].unsqueeze(dim=1).expand(-1, sample_n, -1))  # B * S * cf
         if CTXT_NU in batch:
-            wide_numeric.append(batch[CTXT_NU].unsqueeze(dim=1).expand(-1, sample_n, -1))  # B * S * cnm
-        if self.numeric_f_num > 0:
-            wide_numeric = torch.cat(wide_numeric, dim=-1)  # B * S * nm
-            deep_vectors.append(wide_numeric)
-            wide_numeric = wide_numeric * self.numeric_bias  # B * S * nm
-            wide_prediction = wide_prediction + wide_numeric.sum(dim=-1)  # B * S
-        deep_vectors = torch.cat(deep_vectors, dim=-1)  # B * S * fv
+            nu_features.append(batch[CTXT_NU].unsqueeze(dim=1).expand(-1, sample_n, -1))  # B * S * cnu
+        mh_features = torch.cat(mh_features, dim=-1) if len(mh_features) > 0 else None  # B * S * mh
+        nu_features = torch.cat(nu_features, dim=-1) if len(nu_features) > 0 else None  # B * S * nu
+        return mh_features, nu_features
+
+    def forward(self, batch, *args, **kwargs):
+        mh_features, nu_features = self.concat_features(batch=batch)  # B * S * mh, B * S * nu
+        deep_vectors = self.multihot_embeddings(mh_features).flatten(start_dim=-2)  # B * S * (mh*v)
+        wide_prediction = self.overall_bias + self.multihot_bias(mh_features).squeeze(dim=-1).sum(dim=-1)  # B * S
+        if nu_features is not None:
+            deep_vectors = torch.cat([deep_vectors, nu_features], dim=-1)  # B * S * (mh*v+nu)
+            wide_prediction = wide_prediction + (nu_features * self.numeric_bias).sum(dim=-1)  # B * S
         for layer in self.deep_layers:
             deep_vectors = layer(deep_vectors)  # B * S * 1
         deep_prediction = deep_vectors.squeeze(dim=-1)  # B * S
