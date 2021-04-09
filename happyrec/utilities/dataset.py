@@ -43,7 +43,7 @@ def leave_out_df(all_df, leave_n=1, warm_n=5, split_n=1, max_user=-1, neg_thresh
     Split dfs according to the interaction history of users. Leave the last interactions into validation/test.
     :param all_df: dataframe of all interactions. MUST BE SORTED (usually by time).
     :param leave_n: leave leave_n pos interactions in the validation/test set
-    :param warm_n: keep warm_n pos interactions in the validation/test set
+    :param warm_n: keep warm_n pos interactions in the training set
     :param split_n: split all_df into train_df and split_n others (each contains leave_n)
     :param max_user: random select max_user users into the split sets if number of users > max_user
     :param neg_thresh: threshold of interaction labels that regarded as positive (label > neg_thresh)
@@ -54,7 +54,7 @@ def leave_out_df(all_df, leave_n=1, warm_n=5, split_n=1, max_user=-1, neg_thresh
         max_user = int(max_user * len(total_uids))
 
     user_group = {}
-    uids, labels = all_df[UID], all_df[LABEL]
+    uids, labels = all_df[UID].values, all_df[LABEL].values
     for i in range(len(all_df)):
         uid, label = uids[i], labels[i]
         if uid not in user_group:
@@ -73,9 +73,9 @@ def leave_out_df(all_df, leave_n=1, warm_n=5, split_n=1, max_user=-1, neg_thresh
             uid = all_uids.pop(0)
             user_inters = user_group[uid]
             user_total, tmp_l = user_inters[-1][-1], len(user_inters)
-            while user_total > warm_n and user_total - user_inters[-1][-1] < leave_n:
+            while user_inters[-1][-1] > warm_n and user_total - user_inters[-1][-1] < leave_n:
                 split_df.append(user_inters.pop(-1)[0])
-            if tmp_l != user_inters:
+            if tmp_l != len(user_inters):
                 uid_cnt += 1
             if len(user_inters) == 0 or user_inters[-1][-1] == warm_n:
                 train_index.extend([inter[0] for inter in user_inters])
