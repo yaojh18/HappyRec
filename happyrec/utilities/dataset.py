@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import os
 import numpy as np
+from shutil import copyfile
 
 from ..configs.constants import *
 from ..configs.settings import *
@@ -132,3 +133,9 @@ def random_sample_eval_iids(dataset_name, sample_n=1000):
     val_iids = pd.DataFrame(data={EVAL_IIDS: val_c})
     val_iids.to_csv(os.path.join(dir_name, VAL_IIDS_FILE + '.csv'), sep='\t', index=False)
     return
+
+
+def copy_ui_features(dataset_name, user_file, item_file):
+    dir_name = os.path.join(DATASET_DIR, dataset_name)
+    copyfile(user_file, os.path.join(dir_name, USER_FILE + '.csv'))
+    copyfile(item_file, os.path.join(dir_name, ITEM_FILE + '.csv'))
