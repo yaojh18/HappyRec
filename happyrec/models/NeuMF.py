@@ -69,7 +69,7 @@ class NeuMF(RecModel):
         mlp_u_vectors = self.mlp_uid_embeddings(u_ids)  # B * 1 * v
         mlp_i_vectors = self.mlp_iid_embeddings(i_ids)  # B * S * v
         gmf_vectors = mf_u_vectors * mf_i_vectors  # B * S * v
-        mlp_vectors = torch.cat((mlp_u_vectors.expand(1, i_ids.size(1), 1), mlp_i_vectors), dim=-1)  # B * S * 2v
+        mlp_vectors = torch.cat((mlp_u_vectors.expand_as(mlp_i_vectors), mlp_i_vectors), dim=-1)  # B * S * 2v
         for layer in self.mlp_layers:
             mlp_vectors = layer(mlp_vectors)  # B * S * x
         neu_mf_vectors = torch.cat((gmf_vectors, mlp_vectors), dim=-1)  # B * S * (v + x)

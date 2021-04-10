@@ -139,3 +139,21 @@ def copy_ui_features(dataset_name, user_file, item_file):
     dir_name = os.path.join(DATASET_DIR, dataset_name)
     copyfile(user_file, os.path.join(dir_name, USER_FILE + '.csv'))
     copyfile(item_file, os.path.join(dir_name, ITEM_FILE + '.csv'))
+
+
+def renumber_ids(df, old_column, new_column):
+    old_ids = sorted(df[old_column].unique())
+    id_dict = dict(zip(old_ids, range(1, len(old_ids) + 1)))
+    id_df = pd.DataFrame({new_column: old_ids, old_column: old_ids})
+    id_df[new_column] = id_df[new_column].apply(lambda x: id_dict[x])
+    id_df.index = id_df[new_column]
+    id_df.loc[0] = [0, '']
+    id_df = id_df.sort_index()
+    df[old_column] = df[old_column].apply(lambda x: id_dict[x])
+    df = df.rename(columns={old_column: new_column})
+    return df, id_df, id_dict
+
+
+def read_id_dict(dict_csv, key_column, value_column, sep='\t'):
+    df = pd.read_csv(dict_csv, sep=sep).dropna().astype(int)
+    return dict(zip(df[key_column], df[value_column]))
