@@ -198,7 +198,23 @@ venv.bak/
 # Visio autosave temporary files
 *.~vsd*
 
+# Visual Studio Code
+.vscode
+
+# IDEA Pycharm
 .idea
-./data/
-./datasets/
-lightning_logs/
+
+# Happyrec
+command/**
+!command/cmd.py
+
+/data/**
+!/data/ml-100k*
+
+/dataset/**
+!/dataset/ml100k-5-1
+
+/lightning_logs/
+/log_csv/
+/model/
+

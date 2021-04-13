@@ -9,6 +9,18 @@ from ..configs.settings import *
 from ..models.RecModel import RecModel
 from ..modules.rnn import GRU
 
+'''
+@inproceedings{DBLP:journals/corr/HidasiKBT15,
+  author    = {Bal{\'{a}}zs Hidasi and
+               Alexandros Karatzoglou and
+               Linas Baltrunas and
+               Domonkos Tikk},
+  title     = {Session-based Recommendations with Recurrent Neural Networks},
+  booktitle = {{ICLR} (Poster)},
+  year      = {2016}
+}
+'''
+
 
 class GRU4Rec(RecModel):
     @staticmethod
@@ -57,7 +69,7 @@ class GRU4Rec(RecModel):
         self.iid_embeddings = torch.nn.Embedding(self.item_num, self.vec_size)
         self.gru = GRU(vec_size=self.vec_size, hidden_size=self.vec_size,
                        num_layers=self.num_layers, dropout=self.dropout)
-        self.apply(self.init_weights)
+        self.init_weights()
         return
 
     def forward(self, batch, *args, **kwargs):
@@ -66,7 +78,7 @@ class GRU4Rec(RecModel):
         i_vectors = self.iid_embeddings(i_ids)  # B * S * v
         u_his_vectors = self.iid_embeddings(u_his)  # B * l * v
         output, hidden = self.gru(seq_vectors=u_his_vectors, valid=u_his.gt(0).byte())
-        u_vectors = hidden[0].unsqueeze(dim=1)  # B * 1 * v
+        u_vectors = hidden[-1].unsqueeze(dim=1)  # B * 1 * v
         prediction = (u_vectors * i_vectors).sum(dim=-1)  # B * S
         batch[PREDICTION] = prediction
         return batch

@@ -24,7 +24,7 @@ class Popular(RecModel):
         index_dict = super().dataset_get_item(dataset=dataset, index=index)
         reader = dataset.reader
         index_dict[PREDICTION] = np.array(
-            [reader.item_data[HIS_POS_TRAIN][iid] for iid in index_dict[IID]])
+            [reader.item_data[HIS_POS_TRAIN][iid] for iid in index_dict[IID]], dtype=float)
         return index_dict
 
     def init_modules(self, *args, **kwargs) -> None:

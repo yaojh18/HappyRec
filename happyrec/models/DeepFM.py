@@ -70,4 +70,3 @@ class DeepFM(DeepModel):
         prediction = wide_prediction + deep_prediction  # B * S
         out_dict = {PREDICTION: prediction, LABEL: labels}
         return out_dict
-

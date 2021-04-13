@@ -81,6 +81,7 @@ class Task(object):
         start_time = time.time()
         self.__init_environment()
         model = self.__init_model()
+        num_para = model.count_variables()
 
         # # init logger
         save_dir, name, version = model.init_logger()
@@ -104,6 +105,7 @@ class Task(object):
             'server': socket.gethostname(),
             'model_name': self.model_name,
             'version': version.split('/')[-1],
+            'num_para': num_para,
             'best_iter': best_iter,
             'train_metrics': format_log_metrics_dict(model.train_metrics_buf[best_iter - 1]),
             'val_metrics': format_log_metrics_dict(model.val_metrics_buf[best_iter]),

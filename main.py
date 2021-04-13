@@ -14,7 +14,10 @@ def correct_cuda_no(cuda_str):
     cudas = [c.strip() for c in cudas]
     hostname = socket.gethostname()
     if hostname == 'deepest':
-        correct_dict = {'1': '3', '2': '4', '3': '1', '4': '5', '5': '2', '6': '7', '7': '6'}
+        correct_dict = {'1': '3',
+                        '2': '4',
+                        '3': '1',
+                        '4': '2'}
     else:
         correct_dict = {}
     cudas = [correct_dict[c] if c in correct_dict else c for c in cudas]

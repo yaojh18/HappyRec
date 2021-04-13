@@ -12,6 +12,20 @@ from ..modules.loss import BPRRankLoss, SoftmaxRankLoss
 from ..metrics.MetricList import MetricsList
 from ..metrics.RankMetricList import RankMetricsList
 
+'''
+@inproceedings{DBLP:conf/uai/RendleFGS09,
+  author    = {Steffen Rendle and
+               Christoph Freudenthaler and
+               Zeno Gantner and
+               Lars Schmidt{-}Thieme},
+  title     = {{BPR:} Bayesian Personalized Ranking from Implicit Feedback},
+  booktitle = {{UAI}},
+  pages     = {452--461},
+  publisher = {{AUAI} Press},
+  year      = {2009}
+}
+'''
+
 
 class RecModel(Model):
     default_reader = 'RecReader'
@@ -116,7 +130,7 @@ class RecModel(Model):
     def init_modules(self, *args, **kwargs) -> None:
         self.uid_embeddings = torch.nn.Embedding(self.user_num, self.vec_size)
         self.iid_embeddings = torch.nn.Embedding(self.item_num, self.vec_size)
-        self.apply(self.init_weights)
+        self.init_weights()
         return
 
     def forward(self, batch, *args, **kwargs):

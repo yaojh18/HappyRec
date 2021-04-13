@@ -20,6 +20,7 @@ CAT_F = '_c'
 SEQ_F = '_s'
 OTHER_F = '_o'
 
+PHASE = 'phase'
 TRAIN_PHASE = 0
 VAL_PHASE = 1
 TEST_PHASE = 2

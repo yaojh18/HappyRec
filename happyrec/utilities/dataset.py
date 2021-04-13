@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import os
 import numpy as np
+from shutil import copyfile
 
 from ..configs.constants import *
 from ..configs.settings import *
@@ -42,7 +43,7 @@ def leave_out_df(all_df, leave_n=1, warm_n=5, split_n=1, max_user=-1, neg_thresh
     Split dfs according to the interaction history of users. Leave the last interactions into validation/test.
     :param all_df: dataframe of all interactions. MUST BE SORTED (usually by time).
     :param leave_n: leave leave_n pos interactions in the validation/test set
-    :param warm_n: keep warm_n pos interactions in the validation/test set
+    :param warm_n: keep warm_n pos interactions in the training set
     :param split_n: split all_df into train_df and split_n others (each contains leave_n)
     :param max_user: random select max_user users into the split sets if number of users > max_user
     :param neg_thresh: threshold of interaction labels that regarded as positive (label > neg_thresh)
@@ -53,7 +54,7 @@ def leave_out_df(all_df, leave_n=1, warm_n=5, split_n=1, max_user=-1, neg_thresh
         max_user = int(max_user * len(total_uids))
 
     user_group = {}
-    uids, labels = all_df[UID], all_df[LABEL]
+    uids, labels = all_df[UID].values, all_df[LABEL].values
     for i in range(len(all_df)):
         uid, label = uids[i], labels[i]
         if uid not in user_group:
@@ -72,9 +73,9 @@ def leave_out_df(all_df, leave_n=1, warm_n=5, split_n=1, max_user=-1, neg_thresh
             uid = all_uids.pop(0)
             user_inters = user_group[uid]
             user_total, tmp_l = user_inters[-1][-1], len(user_inters)
-            while user_total > warm_n and user_total - user_inters[-1][-1] < leave_n:
+            while user_inters[-1][-1] > warm_n and user_total - user_inters[-1][-1] < leave_n:
                 split_df.append(user_inters.pop(-1)[0])
-            if tmp_l != user_inters:
+            if tmp_l != len(user_inters):
                 uid_cnt += 1
             if len(user_inters) == 0 or user_inters[-1][-1] == warm_n:
                 train_index.extend([inter[0] for inter in user_inters])
@@ -132,3 +133,27 @@ def random_sample_eval_iids(dataset_name, sample_n=1000):
     val_iids = pd.DataFrame(data={EVAL_IIDS: val_c})
     val_iids.to_csv(os.path.join(dir_name, VAL_IIDS_FILE + '.csv'), sep='\t', index=False)
     return
+
+
+def copy_ui_features(dataset_name, user_file, item_file):
+    dir_name = os.path.join(DATASET_DIR, dataset_name)
+    copyfile(user_file, os.path.join(dir_name, USER_FILE + '.csv'))
+    copyfile(item_file, os.path.join(dir_name, ITEM_FILE + '.csv'))
+
+
+def renumber_ids(df, old_column, new_column):
+    old_ids = sorted(df[old_column].unique())
+    id_dict = dict(zip(old_ids, range(1, len(old_ids) + 1)))
+    id_df = pd.DataFrame({new_column: old_ids, old_column: old_ids})
+    id_df[new_column] = id_df[new_column].apply(lambda x: id_dict[x])
+    id_df.index = id_df[new_column]
+    id_df.loc[0] = [0, '']
+    id_df = id_df.sort_index()
+    df[old_column] = df[old_column].apply(lambda x: id_dict[x])
+    df = df.rename(columns={old_column: new_column})
+    return df, id_df, id_dict
+
+
+def read_id_dict(dict_csv, key_column, value_column, sep='\t'):
+    df = pd.read_csv(dict_csv, sep=sep).dropna().astype(int)
+    return dict(zip(df[key_column], df[value_column]))
