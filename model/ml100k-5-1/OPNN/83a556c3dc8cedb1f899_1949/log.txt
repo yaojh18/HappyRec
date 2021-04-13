@@ -1,0 +1,5 @@
+Optimizer: Adam
+
+[Validation Epoch    0] *ndcg@10= 0.0000  *hit@10= 0.0000 
+Optimizer: Adam
+Optimizer: Adam

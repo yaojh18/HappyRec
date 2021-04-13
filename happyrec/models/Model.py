@@ -243,6 +243,8 @@ class Model(pl.LightningModule):
                 torch.nn.init.normal_(m.bias, mean=0.0, std=0.01)
         elif type(m) == torch.nn.Embedding:
             torch.nn.init.normal_(m.weight, mean=0.0, std=0.01)
+        elif type(m) == torch.nn.parameter.Parameter:
+            torch.nn.init.normal_(m.data, mean=0.0, std=0.01)
         return
 
     def init_logger(self, save_dir=MODEL_DIR, name=None, version=None):
