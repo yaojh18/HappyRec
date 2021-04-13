@@ -1,4 +1,4 @@
-from .DeepModel import DeepModel
+from .FM import FM
 from ..configs.constants import *
 import torch
 from argparse import ArgumentParser
@@ -11,24 +11,23 @@ CTXT_MH = 'ctxt_mh'
 CTXT_NU = 'ctxt_nm'
 
 
-class PNN(DeepModel):
+class PNN(FM):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--first_layer_size', type=int, default=64,
                             help='First Layer dimension in the deep part.')
-        return DeepModel.add_model_specific_args(parser)
+        parser.add_argument('--layers', type=str, default='[64]',
+                            help='Hidden layers in the deep part.')
+        return FM.add_model_specific_args(parser)
 
-    def __init__(self, first_layer_size : int = 64, *args, **kwargs):
+    def __init__(self, first_layer_size : int = 64, layers='[64]', *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.first_layer_size = first_layer_size
-        self.eval_batch_size = 1
+        self.layers = eval(layers) if type(layers) is str else layers
 
     def init_modules(self, *args, **kwargs) -> None:
-        self.multihot_embeddings = torch.nn.Embedding(self.multihot_f_dim, self.vec_size)
-        self.numeric_embeddings = torch.nn.Parameter(torch.Tensor(self.numeric_f_num, self.vec_size),
-                                                     requires_grad=True)
         self.z_weight = torch.nn.Parameter(torch.Tensor(self.first_layer_size, self.multihot_f_num + self.numeric_f_num,
                                                         self.vec_size),
                                            requires_grad=True)
@@ -42,9 +41,8 @@ class PNN(DeepModel):
                 self.deep_layers.append(torch.nn.Dropout(self.dropout))
                 pre_size = size
             self.deep_layers.append(torch.nn.Linear(pre_size, 1))
-        self.apply(self.init_weights)
-        self.init_weights(self.numeric_embeddings)
         self.init_weights(self.z_weight)
+        super().init_modules(*args, **kwargs)
         return
 
     def calutate_lp(self, vectors):
@@ -53,45 +51,38 @@ class PNN(DeepModel):
     def forward(self, batch, *args, **kwargs):
         i_ids = batch[IID]  # B * S
         labels = batch[LABEL]
-        sample_n = i_ids.size(-1)  # S
+        vectors, _ = self.get_embeddings(batch)
 
-        multihot_vectors = []
-        numeric_vectors = []
-        vectors = []
-        if USER_MH in batch:
-            user_mh_vectors = self.multihot_embeddings(batch[USER_MH].long())  # B * 1 * uf * v
-            multihot_vectors.append(user_mh_vectors.expand(-1, sample_n, -1, -1))
-        if USER_NU in batch:
-            numeric_vectors.append(batch[USER_NU].expand(-1, sample_n, -1))  # B * S * unm
-        if ITEM_MH in batch:
-            item_mh_vectors = self.multihot_embeddings(batch[ITEM_MH].long())  # B * S * if * v
-            multihot_vectors.append(item_mh_vectors)
-        if ITEM_NU in batch:
-            numeric_vectors.append(batch[ITEM_NU])  # B * S * inm
-        if CTXT_MH in batch:
-            ctxt_mh_vectors = self.multihot_embeddings(batch[CTXT_MH].long())  # B * cf * v
-            multihot_vectors.append(ctxt_mh_vectors.unsqueeze(dim=1).expand(-1, sample_n, -1, -1))  # B * S * cf * v
-        if CTXT_NU in batch:
-            numeric_vectors.append(batch[CTXT_NU].unsqueeze(dim=1).expand(-1, sample_n, -1))  # B * S * cnm
-        if self.multihot_f_num > 0:
-            multihot_vectors = torch.cat(multihot_vectors, dim=-2)  # B * S * mn * v
-            vectors.append(multihot_vectors)
-        if self.numeric_f_num > 0:
-            numeric_vectors = torch.cat(numeric_vectors, dim=-1)  # B * S * nm
-            numeric_vectors = numeric_vectors.unsqueeze(dim=-1) * self.numeric_embeddings  # B * S * nm * v
-            vectors.append(numeric_vectors)
-        vectors = torch.cat(vectors, dim=-2)  # B * S * n * v
         lz = (vectors.unsqueeze(dim=-3) * self.z_weight).sum(dim=-1).sum(dim=-1)  # B * S * fls
         lp = self.calutate_lp(vectors)  # B * S * fls
         deep_vectors = torch.cat([lz, lp], dim=-1).flatten(start_dim=0, end_dim=1)  # (B*S) * fls
         for layer in self.deep_layers:
             deep_vectors = layer(deep_vectors)  # (B*S) * 1
         prediction = deep_vectors.squeeze(dim=-1).view_as(i_ids)  # B * S
+
         out_dict = {PREDICTION: prediction, LABEL: labels}
         return out_dict
 
 
 class IPNN(PNN):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.eval_batch_size = 4
+        self.layers = [128, 64]
+        self.l2 = 1e-05
+        # 以上为最佳参数， 不需要可以注释掉
+        # IPNN, "l2=1e-05,layers='[128, 64]',eval_batch_size=4", loss = 5779.3350, ndcg @ 10 = 0.0711,
+        # ndcg @ 5 = 0.0497
+        # ndcg @ 10 = 0.0649
+        # ndcg @ 20 = 0.0881
+        # ndcg @ 50 = 0.1165
+        # ndcg @ 100 = 0.1419
+        # hit @ 10 = 0.1262
+        # recall @ 10 = 0.1262
+        # recall @ 20 = 0.2185
+        # precision @ 10 = 0.0126
 
     def init_modules(self, *args, **kwargs) -> None:
         super().init_modules(*args, **kwargs)
@@ -104,7 +95,26 @@ class IPNN(PNN):
         # fls * n matmul B * S * n * v = B * S * fls * v
         return lp
 
+
 class OPNN(PNN):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.eval_batch_size = 1
+        self.layers = [64]
+        self.l2 = 0
+        # 以上为最佳参数， 不需要可以注释掉
+        # OPNN,"l2=0,layers='[64]',eval_batch_size=1",loss= 9551.4297,ndcg@10= 0.0807,
+        # ndcg@5= 0.0553
+        # ndcg@10= 0.0704
+        # ndcg@20= 0.0914
+        # ndcg@50= 0.1196
+        # ndcg@100= 0.1452
+        # hit@10= 0.1357
+        # recall@10= 0.1357
+        # recall@20= 0.2206
+        # precision@10= 0.0136
 
     def init_modules(self, *args, **kwargs) -> None:
         super().init_modules(*args, **kwargs)

@@ -1,4 +1,0 @@
-Optimizer: Adam
-Optimizer: Adam
-Optimizer: Adam
-Optimizer: Adam

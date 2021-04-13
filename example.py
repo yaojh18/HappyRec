@@ -27,9 +27,9 @@ def main():
     DEFAULT_LOGGER.setLevel(logging.DEBUG)
     dataset = 'ml100k-5-1'
     # # define model (required)
-    model_name = OPNN
+    model_name = DeepFM
     model = model_name(train_sample_n=1, val_sample_n=-1, test_sample_n=-1,
-                       num_workers=4, es_patience=20, l2=1e-4, lr=1e-3, batch_size=128, eval_batch_size=1)
+                       num_workers=4, es_patience=20, l2=1e-4, lr=1e-3, batch_size=128, eval_batch_size=16)
     # model = model_name(train_sample_n=1, val_sample_n=999, test_sample_n=-1, num_workers=4, es_patience=20, l2=1e-4)
 
     # # read data (required)

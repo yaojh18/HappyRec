@@ -17,7 +17,7 @@ class SingleQueryAtt(torch.nn.Module):
         att_v = (q * k).sum(dim=-1)  # ? * l
         if scale is not None:
             att_v = att_v * scale  # ? * l
-        att_v = att_v - att_v.max(dim=-1, keepdim=True)[0]  # ? * l
+        att_v = att_v - att_v.max(dim=-1, keepdim=True)[0]  # ? * l 0 :values; 1:indices
         if valid is not None:
             att_v = att_v.masked_fill(valid.le(0), -np.inf)  # ? * l
         att_w = att_v.softmax(dim=-1)  # ? * l
