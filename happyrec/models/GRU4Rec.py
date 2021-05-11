@@ -75,8 +75,8 @@ class GRU4Rec(RecModel):
     def forward(self, batch, *args, **kwargs):
         i_ids = batch[IID]  # B * S
         u_his = batch[HIS_POS_SEQ]  # B * l
-        i_vectors = self.iid_embeddings(i_ids)  # B * S * v
-        u_his_vectors = self.iid_embeddings(u_his)  # B * l * v
+        i_vectors = self.iid_embeddings(i_ids.long())  # B * S * v
+        u_his_vectors = self.iid_embeddings(u_his.long())  # B * l * v
         output, hidden = self.gru(seq_vectors=u_his_vectors, valid=u_his.gt(0).byte())
         u_vectors = hidden[-1].unsqueeze(dim=1)  # B * 1 * v
         prediction = (u_vectors * i_vectors).sum(dim=-1)  # B * S

@@ -41,7 +41,6 @@ class PNN(FM):
                 self.deep_layers.append(torch.nn.Dropout(self.dropout))
                 pre_size = size
             self.deep_layers.append(torch.nn.Linear(pre_size, 1))
-        self.init_weights(self.z_weight)
         super().init_modules(*args, **kwargs)
         return
 
@@ -85,9 +84,9 @@ class IPNN(PNN):
         # precision @ 10 = 0.0126
 
     def init_modules(self, *args, **kwargs) -> None:
+        self.p_weight = torch.nn.Parameter(torch.Tensor(self.first_layer_size, self.multihot_f_num + self.numeric_f_num),
+                                           requires_grad=True)
         super().init_modules(*args, **kwargs)
-        self.p_weight = torch.nn.Parameter(torch.Tensor(self.first_layer_size, self.multihot_f_num + self.numeric_f_num), requires_grad=True)
-        self.init_weights(self.p_weight)
         return
 
     def calutate_lp(self, vectors):
@@ -117,10 +116,9 @@ class OPNN(PNN):
         # precision@10= 0.0136
 
     def init_modules(self, *args, **kwargs) -> None:
-        super().init_modules(*args, **kwargs)
         self.p_weight = torch.nn.Parameter(torch.Tensor(self.first_layer_size, self.vec_size, self.vec_size),
                                            requires_grad=True)
-        self.init_weights(self.p_weight)
+        super().init_modules(*args, **kwargs)
         return
 
     def calutate_lp(self, vectors):

@@ -68,9 +68,7 @@ class FM(RecModel):
         self.multihot_embeddings = torch.nn.Embedding(self.multihot_f_dim, self.vec_size)
         self.numeric_embeddings = torch.nn.Parameter(torch.Tensor(self.numeric_f_num, self.vec_size),
                                                      requires_grad=True)
-        self.apply(self.init_weights)
-        self.init_weights(self.numeric_embeddings)
-        self.init_weights(self.numeric_bias)
+        self.init_weights()
 
     def get_embeddings(self, batch):
         i_ids = batch[IID]  # B * S
